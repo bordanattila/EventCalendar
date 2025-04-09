@@ -23,7 +23,7 @@ def get_date():
     Returns:
         datetime.date: The current date (e.g., 2025-04-04).
     """
-    return DT.date.today()
+    return DT.date.today().strftime('%B %Y')
 
 
 def get_day():

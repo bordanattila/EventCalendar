@@ -15,23 +15,31 @@ class ThemeManager:
         self.themes = {
             'light': {
                 'bg_color': (1, 1, 1, 1),
-                'text_color': "000000",
-                'border_color': (0, 0, 0, 0)
+                'text_color': '000000',
+                'border_color': (0, 0, 0, 1),
+                'button_color': (0.9, 0.9, 0.9, 1),
+                'button_border_color': (0.7, 0.7, 0.7, 1)
             },
             'dark': {
                 'bg_color': (0.1, 0.1, 0.1, 1),
                 'text_color': 'FFFFFF',
-                'border_color': (1, 1, 1, 1)
+                'border_color': (1, 1, 1, 1),
+                'button_color': (0.2, 0.2, 0.2, 1),
+                'button_border_color': (0.4, 0.4, 0.4, 1)
             },
             'blueberry': {
                 'bg_color': (0.2, 0.25, 0.5, 1),
-                'text_color': 'FFFFFF',
-                'border_color': (0.8, 0.9, 1, 1)
+                'text_color': '333333',
+                'border_color': (0.8, 0.9, 1, 1),
+                'button_color': (0.35, 0.4, 0.6, 1),
+                'button_border_color': (0.55, 0.6, 0.8, 1)
             },
             'sunset': {
                 'bg_color': (1, 0.85, 0.7, 1),
                 'text_color': '222222',
-                'border_color': (0.8, 0.3, 0.1, 1)
+                'border_color': (0.8, 0.3, 0.1, 1),
+                'button_color': (1, 0.7, 0.5, 1),
+                'button_border_color': (0.8, 0.4, 0.3, 1)
             }
         }
 

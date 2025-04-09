@@ -23,6 +23,7 @@ import datetime
 
 from app.utils import get_time, get_date, get_day
 from app.theme_manager import ThemeManager
+from UI.event_popup import AddEventPopup
 
 
 class Calendar(GridLayout):
@@ -77,19 +78,11 @@ class Calendar(GridLayout):
         self.add_widget(self.date_time_bar_grid)
 
         # Navigation Buttons
-        self.button_grid = GridLayout(cols=2, size_hint_y=0.05)
-        self.prev_button = Button(text='<< Previous Month')
-        self.next_button = Button(text='Next Month >>')
-        self.prev_button.bind(on_press=self.on_prev)
-        self.next_button.bind(on_press=self.on_next)
-        self.button_grid.add_widget(self.prev_button)
-        self.button_grid.add_widget(self.next_button)
+        self.button_grid = GridLayout(cols=2, size_hint_y=0.06, spacing=50, padding=[50, 0, 50, 10])
+        self.button_grid.add_widget(self.themed_button('<< Previous Month', self.on_prev))
+        self.button_grid.add_widget(self.themed_button('Next Month >>', self.on_next))
         self.add_widget(self.button_grid)
 
-        # Settings Button (touch-friendly)
-        settings_button = Button(text="⚙ Settings", size_hint_y=0.05)
-        settings_button.bind(on_release=self.show_settings)
-        self.add_widget(settings_button)
 
         # Weekday Headers
         self.days_of_week = GridLayout(cols=7, size_hint_y=0.05)
@@ -101,6 +94,17 @@ class Calendar(GridLayout):
         today = datetime.date.today()
         self.build_calendar(today.year, today.month)
         self.add_widget(self.calendar_display)
+
+        # Add Event and Settings Button (touch-friendly)
+        self.bottom_bar = GridLayout(cols=2, size_hint_y=0.06, spacing=150, padding=[5, 5, 5, 5])
+
+        # Left: Add Event button
+        self.bottom_bar.add_widget(self.themed_button('+ Add Event', self.on_add_event))
+
+        # Right: Settings button (aligned to right)
+        self.bottom_bar.add_widget(self.themed_button('⚙ Settings', self.show_settings))
+
+        self.add_widget(self.bottom_bar)
 
         # Update clock every second
         Clock.schedule_interval(self.update_time, 1)
@@ -168,6 +172,42 @@ class Calendar(GridLayout):
                 )
             box.add_widget(label)
             self.days_of_week.add_widget(box)
+
+    def themed_button(self, text, on_press=None):
+        """
+        Creates a themed button with a border and proper background.
+        Returns a BoxLayout containing the styled button.
+        """
+
+        box = BoxLayout(size_hint=(1, 1), height=50)
+
+        # Border
+        with box.canvas.before:
+            Color(*self.theme['button_border_color'])
+            border = Line(rectangle=(0, 0, 0, 0), width=1.2)
+
+        def update_border(*_):
+            border.rectangle = (box.x, box.y, box.width, box.height)
+
+        box.bind(pos=update_border, size=update_border)
+
+        button = Button(
+            text=text,
+            background_normal='',
+            background_color=self.theme['button_color'],
+            color=get_color_from_hex(self.theme['text_color']),
+            size_hint=(1, 1),
+            halign='center',
+            valign='middle',
+        )
+
+        button.text_size = (None, None)
+
+        if on_press:
+            button.bind(on_press=on_press)
+
+        box.add_widget(button)
+        return box
 
     def build_calendar(self, year, month):
         """
@@ -255,10 +295,12 @@ class Calendar(GridLayout):
         )
         layout.add_widget(theme_spinner)
 
-        # Auto Mode Switch
-        auto_mode_switch = Switch(active=self.theme_manager.settings['auto_mode'])
-        layout.add_widget(Label(text='Auto Light/Dark Mode:', size_hint_y=None, height=30))
-        layout.add_widget(auto_mode_switch)
+        # Auto Mode Label + Switch
+        auto_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=10)
+        auto_layout.add_widget(Label(text="Auto Light/Dark Mode:", size_hint_x=0.7))
+        auto_mode_switch = Switch(active=self.theme_manager.settings["auto_mode"], size_hint_x=0.3)
+        auto_layout.add_widget(auto_mode_switch)
+        layout.add_widget(auto_layout)
 
         # Light start time input
         light_input = TextInput(
@@ -320,3 +362,16 @@ class Calendar(GridLayout):
         save_button.bind(on_release=save_settings)
 
         popup.open()
+
+    def on_add_event(self, instance):
+        popup = AddEventPopup(
+            theme=self.theme,
+            on_save_callback=self.save_event
+        )
+        popup.open()
+
+    def save_event(self, event_data):
+        print("Saved Event:", event_data)
+        # TODO: Save to file/db and refresh calendar display
+
+
