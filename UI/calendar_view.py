@@ -17,6 +17,7 @@ from kivy.graphics import Color, Line, Rectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.utils import get_color_from_hex
+from kivy.animation import Animation
 
 import calendar
 import datetime
@@ -24,6 +25,7 @@ import datetime
 from app.utils import get_time, get_date, get_day
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
+from UI.settings_popup import create_settings_popup
 
 
 class Calendar(GridLayout):
@@ -95,6 +97,8 @@ class Calendar(GridLayout):
         self.build_calendar(today.year, today.month)
         self.add_widget(self.calendar_display)
 
+        self.selected_day = datetime.date.today()  # default to today
+
         # Add Event and Settings Button (touch-friendly)
         self.bottom_bar = GridLayout(cols=2, size_hint_y=0.06, spacing=150, padding=[5, 5, 5, 5])
 
@@ -111,6 +115,8 @@ class Calendar(GridLayout):
 
         # Check time for dark and light mode
         Clock.schedule_interval(self.check_theme_switch, 600)
+
+        self.float_root = None
 
     def on_prev(self, instance):
         """Handles 'Previous Month' button click."""
@@ -217,6 +223,9 @@ class Calendar(GridLayout):
         self.calendar_display.clear_widgets()
         first_weekday, total_days = calendar.monthrange(year, month)
 
+        # Adjust: Python's calendar starts with Monday (0), UI starts with Sunday (0)
+        first_weekday = (first_weekday + 1) % 7
+
         # Add empty cells for alignment
         for _ in range(first_weekday):
             self.calendar_display.add_widget(Label(text=''))
@@ -229,14 +238,21 @@ class Calendar(GridLayout):
             else:
                 day_text = f"[b][color={self.text_color}]{day}[/color][/b]"
 
-            self.calendar_display.add_widget(self.create_day_cell(day_text))
+            self.calendar_display.add_widget(self.create_day_cell(day_text, day))
 
-    def create_day_cell(self, text):
+    def create_day_cell(self, text, day):
         """
         Wraps a calendar day label in a BoxLayout with a black border.
         """
         box = BoxLayout()
-        label = Label(text=text, markup=True)
+        btn = Button(
+            text=text,
+            markup=True,
+            background_normal='',
+            background_color=self.theme['button_color'],
+            color=get_color_from_hex(self.theme['text_color'])
+        )
+        btn.bind(on_release=lambda instance: self.set_selected_day(day))
 
         # Draw cell border
         with box.canvas.before:
@@ -247,7 +263,7 @@ class Calendar(GridLayout):
             border.rectangle = (box.x, box.y, box.width, box.height)
 
         box.bind(pos=update_border, size=update_border)
-        box.add_widget(label)
+        box.add_widget(btn)
         return box
 
     def update_time(self, dt):
@@ -256,6 +272,13 @@ class Calendar(GridLayout):
         """
         new_time = str(get_time())
         self.current_time_label.text = f"[b][color={self.text_color}]{new_time}[/color][/b]"
+
+    def rebuild_ui(self, root_ref,):
+        # Re-run initialization with new theme
+        root_ref = self.float_root
+        self.clear_widgets()
+        self.__init__()
+        self.set_float_root(root_ref)
 
     def check_theme_switch(self, dt):
         """
@@ -275,103 +298,70 @@ class Calendar(GridLayout):
 
             # Rebuild UI with new theme
             self.clear_widgets()
-            self.__init__()  # Re-run initialization with new theme
 
-    def show_settings(self, instance=None):
-        """
-        Displays a popup where the user can customize the theme, toggle auto mode,
-        and set custom dark/light times.
-        """
+            self.rebuild_ui(self.float_root)
 
-        layout = BoxLayout(orientation='vertical', spacing=10, padding=20)
-
-        # Theme selection
-        layout.add_widget(Label(text='Select Theme:', size_hint_y=None, height=30))
-        theme_spinner = Spinner(
-            text=self.theme_manager.settings['preferred_theme'],
-            values=list(self.theme_manager.themes.keys()),
-            size_hint_y=None,
-            height=44
-        )
-        layout.add_widget(theme_spinner)
-
-        # Auto Mode Label + Switch
-        auto_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=10)
-        auto_layout.add_widget(Label(text="Auto Light/Dark Mode:", size_hint_x=0.7))
-        auto_mode_switch = Switch(active=self.theme_manager.settings["auto_mode"], size_hint_x=0.3)
-        auto_layout.add_widget(auto_mode_switch)
-        layout.add_widget(auto_layout)
-
-        # Light start time input
-        light_input = TextInput(
-            text=self.theme_manager.settings['light_start'],
-            hint_text='HH:MM',
-            multiline=False,
-            size_hint_y=None,
-            height=44
-        )
-        layout.add_widget(Label(text='Light Mode Start (HH:MM):', size_hint_y=None, height=30))
-        layout.add_widget(light_input)
-
-        # Dark start time input
-        dark_input = TextInput(
-            text=self.theme_manager.settings['dark_start'],
-            hint_text='HH:MM',
-            multiline=False,
-            size_hint_y=None,
-            height=44
-        )
-        layout.add_widget(Label(text='Dark Mode Start (HH:MM):', size_hint_y=None, height=30))
-        layout.add_widget(dark_input)
-
-        # Save button
-        save_button = Button(text='Save and Apply', size_hint_y=None, height=50)
-        layout.add_widget(save_button)
-
-        popup = Popup(title='Settings', content=layout, size_hint=(0.8, 0.8))
-
-        def toggle_theme_spinner(*args):
-            theme_spinner.disabled = auto_mode_switch.active
-
-        auto_mode_switch.bind(active=toggle_theme_spinner)
-        toggle_theme_spinner()  # initialize
-
-        def save_settings(instance):
-            # Apply user settings
-            auto_mode = auto_mode_switch.active
-            selected_theme = theme_spinner.text
-            light_start = light_input.text
-            dark_start = dark_input.text
-
-            # Save values from UI to theme manager
-            self.theme_manager.toggle_auto_mode(auto_mode_switch.active)
-            self.theme_manager.set_custom_theme(theme_spinner.text)
-            self.theme_manager.set_dark_light_times(light_input.text, dark_input.text)
-
-            # Update app theme
-            self.theme_manager.update_theme()
-            self.theme = self.theme_manager.get_theme()
-            self.text_color = self.theme["text_color"]
-            self.dark_mode = self.text_color == "FFFFFF"
-
-            # Rebuild UI
-            self.clear_widgets()
-            self.__init__()
-            popup.dismiss()
-
-        save_button.bind(on_release=save_settings)
-
-        popup.open()
+    def set_selected_day(self, day):
+        today = datetime.date.today()
+        self.selected_day = datetime.date(today.year, today.month, day)
+        self.show_toast(f"Selected {self.selected_day.strftime('%b %d')}")
 
     def on_add_event(self, instance):
         popup = AddEventPopup(
             theme=self.theme,
-            on_save_callback=self.save_event
+            on_save_callback=self.save_event,
+            app_ref=self,
+            initial_date=self.selected_day,
         )
         popup.open()
 
     def save_event(self, event_data):
-        print("Saved Event:", event_data)
+        print('Saved Event:', event_data)
+        self.show_toast(f"Event '{event_data['title']}' added!")
         # TODO: Save to file/db and refresh calendar display
 
+    def show_toast(self, message, duration=2.5):
+        """
+        Displays a temporary toast-style message at the bottom of the screen.
+        """
+        toast = Label(
+            text=message,
+            size_hint=(None, None),
+            size=(self.width * 0.8, 40),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            halign='center',
+            valign='middle',
+            color=get_color_from_hex('#FF4C4C'),
+            bold=True
+        )
+        toast.canvas.before.clear()
+        with toast.canvas.before:
+            Color(*self.theme['button_color'])  # background color
+            toast_bg = Rectangle(pos=toast.pos, size=toast.size)
 
+        # Keep background rectangle in sync
+        def update_rect(*_):
+            toast_bg.pos = toast.pos
+            toast_bg.size = toast.size
+
+        toast.bind(pos=update_rect, size=update_rect)
+
+        if self.float_root:
+            self.float_root.add_widget(toast)
+
+            def dismiss_toast(*_):
+                anim = Animation(opacity=0, duration=0.5)
+                anim.bind(on_complete=lambda *args: self.float_root.remove_widget(toast))
+                anim.start(toast)
+
+            Clock.schedule_once(dismiss_toast, duration)
+        else:
+            print("⚠️ Warning: float_root not set — cannot display toast.")
+
+    def set_float_root(self, float_root):
+        """Allows the Calendar to add overlays like toast to its parent FloatLayout."""
+        self.float_root = float_root
+
+    def show_settings(self, instance=None):
+        popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root))
+        popup.open()
