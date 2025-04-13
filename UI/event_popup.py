@@ -17,6 +17,8 @@ from kivy.graphics import Color as Colour, RoundedRectangle as RR, Rectangle
 
 import datetime
 
+from storage.db_manager import save_event_to_db
+
 
 class AddEventPopup(Popup):
     def __init__(self, on_save_callback=None, theme=None, **kwargs):
@@ -157,7 +159,7 @@ class AddEventPopup(Popup):
     def set_selected_date(self, date_obj):
         self.date_label.text = str(date_obj)
 
-    def save_event(self, instance):
+    def save_event(self, event_data):
         title = self.title_input.text.strip()
         date = self.date_label.text.strip()
         time = self.time_input.text.strip()
@@ -180,6 +182,8 @@ class AddEventPopup(Popup):
         if self.on_save_callback:
             self.on_save_callback(event_data)
 
+        save_event_to_db(event_data)
+        self.show_toast(f"Event '{event_data['title']}' added!")
         self.dismiss()
 
     def _update_popup_border(self, *args):

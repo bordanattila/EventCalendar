@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 
+
 class ThemeManager:
     """
     Manages application themes, including auto-switching logic,
@@ -11,40 +12,47 @@ class ThemeManager:
 
     def __init__(self):
 
-        #Define available themes
+        # Define available themes
         self.themes = {
             'light': {
-                'bg_color': (1, 1, 1, 1),
-                'text_color': '000000',
-                'border_color': (0, 0, 0, 1),
-                'button_color': (0.9, 0.9, 0.9, 1),
-                'button_border_color': (0.7, 0.7, 0.7, 1),
-                'popup_border_color': (0.2, 0.2, 0.2, 1),
+                'bg_color': '#FFFFFF',
+                'text_color': '#000000',
+                'border_color': '#000000',
+                'button_color': '#DADADA',
+                'cell_color': '#E5E5E5',
+                'button_border_color': '#B3B3B3',
+                'popup_border_color': '#333333',
+                'nav_button_color': '#DADADA',
             },
             'dark': {
-                'bg_color': (0.1, 0.1, 0.1, 1),
-                'text_color': 'FFFFFF',
-                'border_color': (1, 1, 1, 1),
-                'button_color': (0.2, 0.2, 0.2, 1),
-                'button_border_color': (0.4, 0.4, 0.4, 1),
-                'popup_border_color': (0.2, 0.2, 0.2, 1),
+                'bg_color': '#1A1A1A',
+                'text_color': '#FFFFFF',
+                'border_color': '#FFFFFF',
+                'button_color': '#444444',
+                'cell_color': '#333333',
+                'button_border_color': '#666666',
+                'popup_border_color': '#333333',
+                'nav_button_color': '#444444',
             },
             'blueberry': {
-                'bg_color': (0.2, 0.25, 0.5, 1),
-                'text_color': '333333',
-                'border_color': (0.8, 0.9, 1, 1),
-                'button_color': (0.35, 0.4, 0.6, 1),
-                'button_border_color': (0.55, 0.6, 0.8, 1),
-                'popup_border_color': (0.2, 0.2, 0.2, 1),
-
+                'bg_color': '#334080',
+                'text_color': '#EEEEEE',
+                'border_color': '#CCDDFF',
+                'button_color': '#4B5FA3',
+                'cell_color': '#4B5FA3',
+                'button_border_color': '#8FA3E0',
+                'popup_border_color': '#222222',
+                'nav_button_color': '#3C4F94',
             },
             'sunset': {
-                'bg_color': (1, 0.85, 0.7, 1),
-                'text_color': '222222',
-                'border_color': (0.8, 0.3, 0.1, 1),
-                'button_color': (1, 0.7, 0.5, 1),
-                'button_border_color': (0.8, 0.4, 0.3, 1),
-                'popup_border_color': (0.2, 0.2, 0.2, 1),
+                'bg_color': '#FFDAB3',
+                'text_color': '#222222',
+                'border_color': '#CC5522',
+                'button_color': '#FFB7A2',
+                'cell_color': '#FFB380',
+                'button_border_color': '#CC704D',
+                'popup_border_color': '#333333',
+                'nav_button_color': '#FFA07A',
             }
         }
 
