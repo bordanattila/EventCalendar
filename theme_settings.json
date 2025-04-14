@@ -1,7 +1,7 @@
 {
-    "auto_mode": false,
-    "dark_start": "17:00",
-    "light_start": "10:00",
-    "preferred_theme": "sunset",
-    "active_theme": "sunset"
+    "auto_mode": true,
+    "dark_start": "20:00",
+    "light_start": "07:00",
+    "preferred_theme": "light",
+    "active_theme": "light"
 }

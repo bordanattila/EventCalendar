@@ -15,7 +15,7 @@ class ThemeManager:
         # Define available themes
         self.themes = {
             'light': {
-                'bg_color': '#FFFFFF',
+                'bg_color': '#FFEFD5',
                 'text_color': '#000000',
                 'border_color': '#000000',
                 'button_color': '#DADADA',
@@ -23,6 +23,7 @@ class ThemeManager:
                 'button_border_color': '#B3B3B3',
                 'popup_border_color': '#333333',
                 'nav_button_color': '#DADADA',
+                'input_bg_color': '#FFEFD5',
             },
             'dark': {
                 'bg_color': '#1A1A1A',
@@ -33,6 +34,7 @@ class ThemeManager:
                 'button_border_color': '#666666',
                 'popup_border_color': '#333333',
                 'nav_button_color': '#444444',
+                'input_bg_color': '#444444',
             },
             'blueberry': {
                 'bg_color': '#334080',
@@ -43,6 +45,7 @@ class ThemeManager:
                 'button_border_color': '#8FA3E0',
                 'popup_border_color': '#222222',
                 'nav_button_color': '#3C4F94',
+                'input_bg_color': '#4B5FA3',
             },
             'sunset': {
                 'bg_color': '#FFDAB3',
@@ -53,6 +56,7 @@ class ThemeManager:
                 'button_border_color': '#CC704D',
                 'popup_border_color': '#333333',
                 'nav_button_color': '#FFA07A',
+                'input_bg_color': '#FFDAB3',
             }
         }
 

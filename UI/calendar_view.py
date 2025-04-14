@@ -9,6 +9,8 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line, Rectangle, RoundedRectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
@@ -184,7 +186,9 @@ class Calendar(GridLayout):
             box = BoxLayout()
 
             # Use background color per day or theme-wide fallback
-            bg_color = bg_color_light if not self.theme_manager.settings['auto_mode'] else self.theme['bg_color']
+            bg_color = get_color_from_hex(bg_color_light)
+            if self.theme_manager.settings['auto_mode'] and self.dark_mode:
+                bg_color = self.theme['bg_color']
 
             # Draw background
             with box.canvas.before:
@@ -297,7 +301,8 @@ class Calendar(GridLayout):
         """
         Wraps a calendar day label in a BoxLayout with a black border.
         """
-        box = BoxLayout()
+        # box = BoxLayout(orientation='vertical', padding=[4, 25, 4, 0], spacing=2)
+        box = FloatLayout()
 
         # Format date text
         if day_date == datetime.date.today():
@@ -307,45 +312,60 @@ class Calendar(GridLayout):
         else:
             day_text = f"[b][color={self.text_color}]{day_date.day}[/color][/b]"
 
+        # Day number Label
         day_label = Label(
             text=day_text,
             markup=True,
-            size_hint_y=None,
-            height=20,
+            size_hint=(None, None),
+            size=(30, 20),
+            pos_hint={'x': 0, 'top': 1},
             halign='left',
+            valign='top',
         )
+        day_label.bind(size=lambda instance, value: setattr(instance, 'text_size', value))
         box.add_widget(day_label)
 
-        # Add event previews (just time + title)
-        for event in events[:2]:  # Limit to 2 for clarity
-            preview = Label(
-                text=f"[size=12][color={self.text_color}]{event.title} @ {event.time}[/color][/size]",
-                markup=True,
-                font_size='12sp',
-                halign='left',
-                size_hint_y=None,
-                height=15
-            )
-            box.add_widget(preview)
-
+        # Cell input area
+        # anchor = AnchorLayout(anchor_x='center', anchor_y='center')
         btn = Button(
             background_normal='',
-            background_color=self.theme['cell_color'],
-            color=get_color_from_hex(self.theme['text_color']),
+            # background_color=self.theme['cell_color'],
+            background_color=(0, 0, 0, 0),
+            # color=get_color_from_hex(self.theme['text_color']),
             size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
         )
         btn.bind(on_release=lambda instance: self.set_selected_day(day_date.day))
+        # anchor.add_widget(btn)
+        box.add_widget(btn)
 
         # Draw cell border
         with box.canvas.before:
-            Color(*self.theme['border_color'])
+            Color(*get_color_from_hex(self.theme['border_color']))
             border = Line(rectangle=(0, 0, 0, 0), width=1.2)
 
         def update_border(*_):
             border.rectangle = (box.x, box.y, box.width, box.height)
 
+        # Add event previews (just time + title)
+        for i, event in enumerate(events[:2]):  # Limit to 2 for clarity
+            preview = Label(
+                text=f"[size=12][color={self.text_color}]{event.title} @ {event.time}[/color][/size]",
+                markup=True,
+                font_size='12sp',
+                halign='left',
+                valign='top',
+                size_hint=(1, None),
+                height=15,
+                pos_hint={'x': 0, 'top': 0.85 - i * 0.15},
+                padding=(5, 0),
+            )
+            preview.bind(width=lambda instance, value: setattr(instance, 'text_size', (value, None)))
+            # preview.bind(size=preview.setter('text_size'))
+            box.add_widget(preview)
+
+
         box.bind(pos=update_border, size=update_border)
-        box.add_widget(btn)
         return box
 
     def update_time(self, dt):

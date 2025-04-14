@@ -21,17 +21,6 @@ engine = create_engine('sqlite:///calendar.db', echo=True)
 
 # Create tables
 Base.metadata.create_all(engine)
-if __name__ == '__main__':
-    with Session(engine) as session:
-        testEvent = Event(
-            title='Test',
-            date='2025-04-20',
-            time='10:00',
-            location='At home',
-            notes='no notes',
-        )
-        session.add_all([testEvent])
-        session.commit()
 
 SessionLocal = sessionmaker(bind=engine)
 

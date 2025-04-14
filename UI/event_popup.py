@@ -21,15 +21,17 @@ from storage.db_manager import save_event_to_db
 
 
 class AddEventPopup(Popup):
-    def __init__(self, on_save_callback=None, theme=None, **kwargs):
+    def __init__(self, app_ref, on_save_callback=None, theme=None, **kwargs):
         self.app_ref = kwargs.pop('app_ref', None)
         self.selected_date = kwargs.pop('initial_date', datetime.date.today())
         super().__init__(**kwargs)
+        self.app_ref = app_ref
         self.title = 'Add Event'
         self.size_hint = (0.85, 0.85)
         self.on_save_callback = on_save_callback
         self.theme = theme or {}
         self.background = ''
+        self.background_color = get_color_from_hex(self.theme.get('bg_color', '#FFFFFF'))
         self.bg_color = self.theme.get('bg_color', (1, 1, 1, 1))
         self.date_label = Label(
             text=str(self.selected_date),
@@ -76,7 +78,7 @@ class AddEventPopup(Popup):
 
         layout.add_widget(Label(
             text='Date:*',
-            color=get_color_from_hex(self.theme.get('text_colr', '#000000')),
+            color=get_color_from_hex(self.theme.get('text_color', '#000000')),
             size_hint_y=None,
             height=30
         ))
@@ -86,7 +88,7 @@ class AddEventPopup(Popup):
 
         layout.add_widget(Label(
             text='Time (HH:MM):*',
-            color=get_color_from_hex(self.theme.get('text_colr', '#000000')),
+            color=get_color_from_hex(self.theme.get('text_color', '#000000')),
             size_hint_y=None,
             height=30
         ))
@@ -100,7 +102,7 @@ class AddEventPopup(Popup):
         # Optional fields
         layout.add_widget(Label(
             text='Location:',
-            color=get_color_from_hex(self.theme.get('text_colr', '#000000')),
+            color=get_color_from_hex(self.theme.get('text_color', '#000000')),
             size_hint_y=None,
             height=30
         ))
@@ -113,7 +115,7 @@ class AddEventPopup(Popup):
 
         layout.add_widget(Label(
             text='Notes:',
-            color=get_color_from_hex(self.theme.get('text_colr', '#000000')),
+            color=get_color_from_hex(self.theme.get('text_color', '#000000')),
             size_hint_y=None,
             height=30
         ))
@@ -183,8 +185,12 @@ class AddEventPopup(Popup):
             self.on_save_callback(event_data)
 
         save_event_to_db(event_data)
-        self.show_toast(f"Event '{event_data['title']}' added!")
+        self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
         self.dismiss()
+
+        # Refresh calendar to show new event
+        self.app_ref.selected_day = None
+        self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
 
     def _update_popup_border(self, *args):
         self._popup_border.pos = self.pos

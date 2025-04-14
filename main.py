@@ -10,6 +10,10 @@ Created by Attila Bordan.
 from kivy.app import App
 from UI.calendar_view import Calendar
 from kivy.uix.floatlayout import FloatLayout
+from kivy.config import Config
+
+Config.set('graphics', 'fullscreen', 'auto')
+Config.write()
 
 
 class CalendarApp(App):
