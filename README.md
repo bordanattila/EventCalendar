@@ -72,7 +72,7 @@ nano ~/.config/lxsession/LXDE-pi/autostart
 ```
 Add:
 ```commandline
-@/usr/bin/python3 /home/pi/schedule_board/main.py
+@/usr/bin/python3 /home/pi/EventCalendar/main.py
 ```
 
 ---
@@ -95,5 +95,6 @@ Attila Bordán
 
 Engineer. Builder. 
 
-[LinkedIn](https://www.linkedin.com/in/bordanattila/) • [Portfolio]((https://bordanattila.github.io/Portfolio/))
+[LinkedIn](https://www.linkedin.com/in/bordanattila/)  
+[Portfolio]((https://bordanattila.github.io/Portfolio/))
 ---

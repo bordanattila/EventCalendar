@@ -104,7 +104,7 @@ class ThemeManager:
             light_start = datetime.datetime.strptime(self.settings['light_start'], '%H:%M').time()
 
             if light_start <= now < dark_start:
-                self.settings['active_theme'] = 'light'
+                self.settings['active_theme'] = self.settings['preferred_theme']
             else:
                 self.settings['active_theme'] = 'dark'
         else:

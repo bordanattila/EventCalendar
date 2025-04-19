@@ -6,11 +6,10 @@ Main Calendar view component with dynamic theme support and settings popup.
 
 from app.utils import is_dark_mode
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Color, Line, Rectangle, RoundedRectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
@@ -20,10 +19,14 @@ from kivy.animation import Animation
 import calendar
 import datetime
 
-from app.utils import get_time, get_date, get_day
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
 from UI.settings_popup import create_settings_popup
+from UI.weekly_view import WeeklyView
+from UI.components.top_bar import TopBar
+from UI.components.nav_buttons import NavButtons
+from UI.components.weekday_header import WeekdayHeader
+from UI.components.bottom_bar import BottomBar
 from storage.db_manager import get_events_for_month
 
 
@@ -37,7 +40,7 @@ class Calendar(GridLayout):
     - Settings popup
     """
     def __init__(self, **kwargs):
-        super(Calendar, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.cols = 1
         self.rows = 5
         self.dark_mode = is_dark_mode()
@@ -45,6 +48,7 @@ class Calendar(GridLayout):
         today = datetime.date.today()
         self.current_year = today.year
         self.current_month = today.month
+        self.is_weekly_view = False
 
         # Load theme and settings
         self.theme_manager = ThemeManager()
@@ -58,42 +62,9 @@ class Calendar(GridLayout):
 
         Window.clearcolor = self.theme['bg_color']
 
-        self.current_time = str(get_time())
-        self.current_day = str(get_day())
-        self.current_date = str(get_date())
-
-        # Top Bar: Time / Day / Date
-        self.date_time_bar_grid = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=0.08,
-            padding=[20, 10],
-            spacing=20
-        )
-
-        label_style = {
-            'markup': True,
-            'font_size': '20sp',
-            'halign': 'center',
-            'valign': 'middle',
-        }
-
-        self.current_time_label = Label(
-            text=f"[b][color={self.text_color}]{self.current_time}[/color][/b]",
-            **label_style
-        )
-        self.current_day_label = Label(
-            text=f"[b][color={self.text_color}]{self.current_day}[/color][/b]",
-            **label_style
-        )
-        self.current_date_label = Label(
-            text=f"[b][color={self.text_color}]{self.current_date}[/color][/b]",
-            **label_style
-        )
-
-        self.date_time_bar_grid.add_widget(self.current_time_label)
-        self.date_time_bar_grid.add_widget(self.current_day_label)
-        self.date_time_bar_grid.add_widget(self.current_date_label)
-        self.add_widget(self.date_time_bar_grid)
+        # Top Bar
+        self.top_bar = TopBar(self.theme)
+        self.add_widget(self.top_bar)
 
         # Divider below top bar
         with self.canvas:
@@ -109,20 +80,18 @@ class Calendar(GridLayout):
             self.divider_line.size = (self.width, 1)
         self.bind(pos=update_divider, size=update_divider)
 
-        # Navigation Buttons
-        self.button_grid = GridLayout(cols=2, size_hint_y=0.06, spacing=50, padding=[50, 0, 50, 10])
-        self.button_grid.add_widget(
-            self.themed_button('<< Previous Month', self.on_prev, bg_override=self.theme['nav_button_color'])
+        # # Navigation Buttons
+        self.nav_grid = NavButtons(
+            theme=self.theme,
+            on_prev=self.on_prev,
+            on_next=self.on_next,
         )
-        self.button_grid.add_widget(
-            self.themed_button('Next Month >>', self.on_next, bg_override=self.theme['nav_button_color'])
-        )
-        self.add_widget(self.button_grid)
+        self.add_widget(self.nav_grid)
 
         # Weekday Headers
-        self.days_of_week = GridLayout(cols=7, size_hint_y=0.05)
-        self.add_weekdays_header()
-        self.add_widget(self.days_of_week)
+        self.weekday_header = WeekdayHeader(theme=self.theme, theme_manager=self.theme_manager,
+                                            dark_mode=self.dark_mode)
+        self.add_widget(self.weekday_header)
 
         # Calendar Grid Display
         self.selected_day = datetime.date.today()  # default to today
@@ -130,24 +99,70 @@ class Calendar(GridLayout):
         self.build_calendar(today.year, today.month)
         self.add_widget(self.calendar_display)
 
-        # Add Event and Settings Button (touch-friendly)
-        self.bottom_bar = GridLayout(cols=2, size_hint_y=0.06, spacing=50, padding=[50, 15, 50, 10])
-
-        # Left: Add Event button
-        self.bottom_bar.add_widget(self.themed_button('+ Add Event', self.on_add_event))
-
-        # Right: Settings button (aligned to right)
-        self.bottom_bar.add_widget(self.themed_button('⚙ Settings', self.show_settings))
-
+        # Bottom bar
+        self.bottom_bar = BottomBar(
+            theme=self.theme,
+            on_toggle_view=self.toggle_weekly_view,
+            on_add_event=self.on_add_event,
+            on_show_settings=self.show_settings
+        )
         self.add_widget(self.bottom_bar)
-
-        # Update clock every second
-        Clock.schedule_interval(self.update_time, 1)
 
         # Check time for dark and light mode
         Clock.schedule_interval(self.check_theme_switch, 600)
 
         self.float_root = None
+
+    def create_themed_button(self, text, callback=None, button_type='standard', bg_override=None, font_override=None):
+        """
+        Creates a styled button with shadow and background, using theme settings.
+        button_type: 'standard' (bottom bar), 'nav' (navigation bar), or custom
+        """
+        box = BoxLayout(size_hint=(1, 1), height=50, spacing=5, padding=[10, 0])
+
+        # Pick the correct background color based on button type
+        if bg_override:
+            bg_color = bg_override
+        elif button_type == 'nav':
+            bg_color = self.theme.get('nav_button_color', self.theme['button_color'])
+        else:
+            bg_color = self.theme['button_color']
+
+        # Background + Shadow drawing
+        with box.canvas.before:
+            # Fix for shadow being white: ensure the alpha is correct and the canvas draws at the right time
+            Color(0, 0, 0, 0.25)
+            shadow = RoundedRectangle(pos=(box.x + 2, box.y - 2), size=box.size, radius=[10])
+
+            Color(*get_color_from_hex(bg_color))
+            button_bg = RoundedRectangle(pos=box.pos, size=box.size, radius=[10])
+
+        def update_graphics(*_):
+            shadow.pos = (box.x + 2, box.y - 2)
+            shadow.size = box.size
+            button_bg.pos = box.pos
+            button_bg.size = box.size
+
+        box.bind(pos=update_graphics, size=update_graphics)
+
+        # Create the actual button
+        button = Button(
+            text=text,
+            background_normal='',
+            background_color=get_color_from_hex(bg_color),
+            color=get_color_from_hex(self.theme['text_color']),
+            size_hint=(1, 1),
+            halign='center',
+            valign='middle',
+            font_name=font_override if font_override else 'Roboto',
+        )
+        button.text_size = (None, None)
+
+        if callback:
+            button.bind(on_press=callback)
+
+        box.add_widget(button)
+        return box
 
     def on_prev(self, instance):
         """Handles 'Previous Month' button click."""
@@ -156,6 +171,7 @@ class Calendar(GridLayout):
             self.current_year -= 1
         else:
             self.current_month -= 1
+        self.update_current_date_display()
         self.build_calendar(self.current_year, self.current_month)
 
     def on_next(self, instance):
@@ -165,111 +181,13 @@ class Calendar(GridLayout):
             self.current_year += 1
         else:
             self.current_month += 1
+        self.update_current_date_display()
         self.build_calendar(self.current_year, self.current_month)
 
-    def add_weekdays_header(self):
-        """
-        Creates colored weekday header cells with text labels
-        and adds them to the header row.
-        """
-        days_with_colors = [
-            ('Sun', 'FFD700'),  # Gold
-            ('Mon', 'B0C4DE'),  # Light Steel Blue
-            ('Tue', '98FB98'),  # Pale Green
-            ('Wed', 'FFFF99'),  # Bright Yellow Tint
-            ('Thu', 'FFA07A'),  # Light Salmon
-            ('Fri', 'D3D3D3'),  # Light Gray
-            ('Sat', '87CEFA')   # Light Sky Blue
-        ]
-
-        for day, bg_color_light in days_with_colors:
-            box = BoxLayout()
-
-            # Use background color per day or theme-wide fallback
-            bg_color = get_color_from_hex(bg_color_light)
-            if self.theme_manager.settings['auto_mode'] and self.dark_mode:
-                bg_color = self.theme['bg_color']
-
-            # Draw background
-            with box.canvas.before:
-                if isinstance(bg_color, str):
-                    Color(*get_color_from_hex(bg_color))
-                else:
-                    Color(*bg_color)
-
-                bg_rect = Rectangle(pos=box.pos, size=box.size)
-
-            # Keep background in sync with layout
-            def make_updater(widget, rect):
-                def update(*_):
-                    rect.pos = widget.pos
-                    rect.size = widget.size
-                return update
-
-            box.bind(pos=make_updater(box, bg_rect), size=make_updater(box, bg_rect))
-
-            # Add day label
-            if self.dark_mode:
-                label = Label(
-                    text=f"[b][color={bg_color_light}]{day}[/color][/b]",
-                    markup=True
-                )
-            else:
-                label = Label(
-                    text=f"[b][color={self.text_color}]{day}[/color][/b]",
-                    markup=True
-                )
-            box.add_widget(label)
-            self.days_of_week.add_widget(box)
-
-    def themed_button(self, text, on_press=None, bg_override=None):
-        """
-        Creates a themed button with a border and proper background.
-        Returns a BoxLayout containing the styled button.
-        """
-
-        box = BoxLayout(size_hint=(1, 1), height=50)
-
-        with box.canvas.before:
-            # # Shadow
-            # Color(0, 0, 0, 0,25)
-            # shadow = RoundedRectangle(pos=(box.x + 2, box.y - 2), size=box.size, radius=[10])
-
-            # Background fill
-            Color(*get_color_from_hex(bg_override or self.theme['button_color']))
-            button_bg = RoundedRectangle(pos=box.pos, size=box.size, radius=[10])
-
-            # Border
-            # Color(*get_color_from_hex(self.theme['button_border_color']))
-            # button_border = RoundedRectangle(pos=box.pos, size=box.size, radius=[10])
-
-        def update_graphics(*_):
-            # shadow.pos = (box.x + 2, box.y - 2)
-            # shadow.size = box.size
-            button_bg.pos = box.pos
-            button_bg.size = box.size
-            # button_border.pos = box.pos
-            # button_border.size = box.size
-
-        box.bind(pos=update_graphics, size=update_graphics)
-
-        button = Button(
-            text=text,
-            background_normal='',
-            background_color=get_color_from_hex(bg_override or self.theme['button_color']),
-            color=get_color_from_hex(self.theme['text_color']),
-            size_hint=(1, 1),
-            halign='center',
-            valign='middle',
-        )
-
-        button.text_size = (None, None)
-
-        if on_press:
-            button.bind(on_press=on_press)
-
-        box.add_widget(button)
-        return box
+    def update_current_date_display(self):
+        new_date = datetime.date(self.current_year, self.current_month, 1)
+        self.current_date = new_date.strftime("%B %Y")
+        self.top_bar.date_label.text = f"[b][color={self.text_color}]{self.current_date}[/color][/b]"
 
     def build_calendar(self, year, month):
         """
@@ -348,9 +266,10 @@ class Calendar(GridLayout):
             border.rectangle = (box.x, box.y, box.width, box.height)
 
         # Add event previews (just time + title)
-        for i, event in enumerate(events[:2]):  # Limit to 2 for clarity
+        for i, event in enumerate(sorted(events, key=lambda e: e.time)):
+            short_title = (event.title[:22] + '...') if len(event.title) > 25 else event.title
             preview = Label(
-                text=f"[size=12][color={self.text_color}]{event.title} @ {event.time}[/color][/size]",
+                text=f"[size=12][color={self.text_color}]* {short_title} @ {event.time}[/color][/size]",
                 markup=True,
                 font_size='12sp',
                 halign='left',
@@ -358,22 +277,16 @@ class Calendar(GridLayout):
                 size_hint=(1, None),
                 height=15,
                 pos_hint={'x': 0, 'top': 0.85 - i * 0.15},
-                padding=(5, 0),
+                padding=(5, 2),
             )
-            preview.bind(width=lambda instance, value: setattr(instance, 'text_size', (value, None)))
+            preview.bind(width=lambda instance, value: setattr(instance, 'text_size', (value, None)),
+                         texture_size=lambda instance, value: setattr(instance, 'height', value[1]),
+                         )
             # preview.bind(size=preview.setter('text_size'))
             box.add_widget(preview)
 
-
         box.bind(pos=update_border, size=update_border)
         return box
-
-    def update_time(self, dt):
-        """
-        Updates the time display every second.
-        """
-        new_time = str(get_time())
-        self.current_time_label.text = f"[b][color={self.text_color}]{new_time}[/color][/b]"
 
     def rebuild_ui(self, root_ref):
         # Re-run initialization with new theme
@@ -430,15 +343,18 @@ class Calendar(GridLayout):
             text=message,
             size_hint=(None, None),
             size=(self.width * 0.8, 40),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            pos_hint={'center_x': 0.5},
             halign='center',
-            valign='middle',
-            color=get_color_from_hex('#FF4C4C'),
+            valign='bottom',
+            # color=get_color_from_hex('#FF4C4C'),
+            # background_color=get_color_from_hex('#ff3333'),
+            color=get_color_from_hex('#FFFFFF'),
             bold=True
         )
         toast.canvas.before.clear()
         with toast.canvas.before:
-            Color(*self.theme['button_color'])  # background color
+            # Color(*self.theme['button_color'])  # background color
+            Color(*get_color_from_hex('#FF4C4C'))
             toast_bg = Rectangle(pos=toast.pos, size=toast.size)
 
         # Keep background rectangle in sync
@@ -467,3 +383,24 @@ class Calendar(GridLayout):
     def show_settings(self, instance=None):
         popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root))
         popup.open()
+
+    def toggle_weekly_view(self, instance):
+        self.clear_widgets()
+        self.is_weekly_view = not self.is_weekly_view
+
+        if self.is_weekly_view:
+            self.weekly_view = WeeklyView(theme=self.theme)
+            self.weekly_view.build_view()
+            self.add_widget(self.top_bar)
+            self.add_widget(self.nav_grid)
+            self.add_widget(self.weekday_header)
+            self.add_widget(self.weekly_view)
+            self.add_widget(self.bottom_bar)
+        else:
+            self.calendar_display = GridLayout(cols=7, size_hint_y=0.85)
+            self.build_calendar(self.current_year, self.current_month)
+            self.add_widget(self.top_bar)
+            self.add_widget(self.nav_grid)
+            self.add_widget(self.weekday_header)
+            self.add_widget(self.calendar_display)
+            self.add_widget(self.bottom_bar)

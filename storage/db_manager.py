@@ -38,11 +38,32 @@ def save_event_to_db(event_data: dict[str, str]) -> None:
         session.commit()
 
 
-def get_events_by_date(date_str: str) -> list[Event]:
-    """Returns a list of Event objects for a given date (YYYY-MM-DD)."""
+def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
+    """
+    Returns a dictionary of events keyed by date (YYYY-MM-DD) for a given week
+    containing the given `date`, starting from Sunday to Saturday.
+    """
+    # Get Sunday as the first day of the week
+    # weekday: Mon=0 ... Sun=6
+    sunday = datetime.date.fromisocalendar(year, week_number, 7)
+    start_date = sunday
+    end_date = start_date + datetime.timedelta(days=7)
+
     with SessionLocal() as session:
-        events = session.query(Event).filter_by(date=date_str).all()
-        return events
+        stmt = select(Event).where(
+            Event.date >= start_date,
+            Event.date < end_date,
+        )
+        events = session.scalars(stmt).all()
+
+    event_dict: dict[str, list[Event]] = {}
+    for event in events:
+        event_dict.setdefault(event.date, []).append(event)
+    print("🔎 Events returned for week:")
+    for key, value in event_dict.items():
+        print(f"{key}: {len(value)} events")
+
+    return event_dict
 
 
 def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
@@ -55,7 +76,7 @@ def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
     with SessionLocal() as session:
         stmt = select(Event).where(
             Event.date >= str(start_date),
-            Event.date < str(end_date)
+            Event.date < str(end_date),
         )
         events = session.scalars(stmt).all()
 
