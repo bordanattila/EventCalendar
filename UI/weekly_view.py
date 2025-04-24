@@ -2,15 +2,24 @@
 weekly_view.py
 
 Week view component
+The main layout is a horizontal BoxLayout (7 days = 7 children).
+
+Each child is a vertical GridLayout with 24 rows for each hour.
+
+Inside each hour slot, optionally place the event label(s).
+
+This gives 7 tall columns, one per day, each with 24 vertical rows.
 """
 
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.widget import Widget
-from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.graphics import Color, Line, Rectangle
 from kivy.utils import get_color_from_hex
+from kivy.clock import Clock
 
 import datetime
 
@@ -18,99 +27,231 @@ from storage.db_manager import get_events_for_week
 from app.theme_manager import ThemeManager
 
 
-class WeeklyView(GridLayout):
-    """
-    Weekly view component that includes:
-    - Days of the week
-    """
+class WeeklyView(BoxLayout):
     def __init__(self, theme, **kwargs):
         super().__init__(**kwargs)
-        self.cols = 7
-        self.rows = 24
+        self.orientation = 'horizontal'
         self.theme = theme
         self.border_color = get_color_from_hex(theme['border_color'])
         self.text_color = self.theme['text_color']
         self.size_hint = (1, 1)
+        self.spacing = 0  # No spacing between columns
+
+        self.build_view()
 
     @staticmethod
-    def get_current_week_dates():
-        today = datetime.date.today()
-        days_since_sunday = (today.weekday() + 1) % 7
-        sunday = today - datetime.timedelta(days=days_since_sunday)
-        result = [sunday + datetime.timedelta(days=i) for i in range(7)]
-        return result
+    def get_current_week_dates(reference_date=None):
+        # today = datetime.date.today()
+        if reference_date is None:
+            reference_date = datetime.date.today()
+        days_since_sunday = (reference_date.weekday() + 1) % 7
+        sunday = reference_date - datetime.timedelta(days=days_since_sunday)
+        return [sunday + datetime.timedelta(days=i) for i in range(7)]
 
     def build_view(self):
         self.clear_widgets()
 
-        week_dates = WeeklyView.get_current_week_dates()
-        first_day = week_dates[0] # First day of the week
+        # Get week dates and events
+        week_dates = self.get_current_week_dates()
+        first_day = week_dates[0]
         event_dict = get_events_for_week(first_day.year, first_day.isocalendar().week)
 
-        for hour in range(24):  # inner loop is hour (== rows per column)
-            for date in week_dates:  # now outer loop is date (== column)
-                events = event_dict.get(str(date), [])
-                try:
-                    matching = [e for e in events if int(e.time.split(":")[0]) == hour]
-                except Exception as ex:
-                    print(f"⚠️ Failed to parse time for event(s): {ex}")
-                    matching = []
+        # Create 7 columns, one for each day
+        for i, date in enumerate(week_dates):
+            # Column container
+            day_column = BoxLayout(orientation='vertical', size_hint_x=1 / 7)
 
-                # cell = self.create_hour_cell(date, hour, matching)
-                # if cell:
-                #     self.add_widget(cell)
-                # else:
-                #     self.add_widget(Widget(size_hint=(1, 1)))  # invisible spacer
-                self.add_widget(self.create_hour_cell(date, hour, matching))
+            # Draw vertical border line
+            with day_column.canvas.after:
+                Color(*self.border_color)
+                v_line = Line(points=[0, 0, 0, 0], width=2.0)
 
-    def create_hour_cell(self, date, hour, events):
-        layout = FloatLayout()
-        # if not events:
-        #     return None
+                def update_v_line(inst, val):
+                    v_line.points = [inst.right, inst.y, inst.right, inst.top]
 
-        # if hour == 0:
-        #     # Optional: show day name at top row
-        #     label = Label(
-        #         text=date.strftime('%a\n%m/%d'),
-        #         size_hint=(1, None),
-        #         # pos_hint={'center_x': 0.5, 'center_y': 0.5},
-        #         halign='center',
-        #         valign='middle',
-        #         markup=True,
-        #         color=get_color_from_hex(self.text_color),
-        #         height=30,
-        #         pos_hint={'top': 1},
-        #     )
-        #     label.bind(size=lambda inst, val: setattr(inst, 'text_size', val))
-        #     layout.add_widget(label)
+                day_column.bind(pos=update_v_line, size=update_v_line)
 
-        for i, event in enumerate(events):
-            label = Label(
-                text=f"[color={self.text_color}]{event.title} @ {event.time} \nLocation: {event.location} "
-                     f"\nNotes: {event.notes}[/color]",
-                markup=True,
-                size_hint=(1, None),
-                halign='center',
-                valign='middle',
-                text_size=(None, None),
-                height=70,
-                pos_hint={'top': 0.9 - i * 0.3},
+            # Scrollable events container
+            scroll = ScrollView(size_hint=(1, 1))
+            events_layout = BoxLayout(
+                orientation='vertical',
+                size_hint_y=None,
+                spacing=0,
+                padding=(0, 20),
             )
-            label.bind(size=lambda instance, value: setattr(instance, 'text_size', value))
-            layout.add_widget(label)
+            events_layout.bind(minimum_height=events_layout.setter('height'))
 
-        with layout.canvas.before:
-            Color(1, 1, 1, 0.04) if events else Color(0, 0, 0, 0)  # only tint if there's something
-            # Color(0.2, 0.2, 0.2, 0.1)  # light transparent fill to debug layout
-            Rectangle(pos=layout.pos, size=layout.size)
+            # Sort events chronologically
+            events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
 
-            Color(*self.border_color)
-            border = Line(rectangle=(0, 0, 0, 0), width=0.8)
+            # Add each event to the column
+            for event in events:
+                # Event container
+                event_box = BoxLayout(
+                    orientation='vertical',
+                    size_hint_y=None,
+                    height=150
+                )
 
-        def update_border(*_):
-            border.rectangle = (layout.x, layout.y, layout.width, layout.height)
+                # Conditionally include location and notes only if they're not empty
+                event_text = f"[b][color={self.text_color}]{event.time}[/color][/b]\n" + \
+                             f"[color={self.text_color}]{event.title}[/color]"
 
-        layout.bind(pos=update_border, size=update_border)
-        layout.bind(size=lambda instance, value: setattr(instance, 'text_size', value))
+                if event.location and event.location.strip():
+                    event_text += f"\n[size=12][color={self.text_color}]Location: {event.location}[/color][/size]"
 
-        return layout
+                if event.notes and event.notes.strip():
+                    event_text += f"\n[size=12][color={self.text_color}]Notes: {event.notes}[/color][/size]"
+                # Event content
+                event_label = Label(
+                    text=event_text,
+                    markup=True,
+                    size_hint_y=None,
+                    text_size=(None, None),
+                    halign='left',
+                    valign='top',
+                    padding=(10, 10)
+                )
+
+                def update_label_size(label, width):
+                    # Set text_size to constrain width and allow flowing text
+                    label.text_size = (width - 20, None)
+
+                    # After next render, texture_size will have the real required size
+                    Clock.schedule_once(lambda dt: adjust_height(label), 0)
+
+                def adjust_height(label):
+                    # Set height based on texture_size with padding
+                    new_height = label.texture_size[1] + 20
+                    label.height = new_height
+                    label.parent.height = new_height + 10  # parent is event_box
+
+                # Bind width changes to update_label_size
+                event_label.bind(width=update_label_size)
+
+                event_box.add_widget(event_label)
+
+                def draw_bottom_border(widget, *_):
+                    widget.canvas.after.clear()
+                    with widget.canvas.after:
+                        Color(*self.border_color)
+                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.5)
+
+                event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
+
+                events_layout.add_widget(event_box)
+
+            scroll.add_widget(events_layout)
+            day_column.add_widget(scroll)
+            self.add_widget(day_column)
+
+        # Add vertical lines between columns at the container level for better visibility
+        def update_all_borders(instance, value):
+            instance.canvas.after.clear()
+            with instance.canvas.after:
+                for i in range(6):  # 6 dividers between 7 columns
+                    col_width = instance.width / 7
+                    x_pos = (i + 1) * col_width
+
+                    Color(*self.border_color)
+                    Line(
+                        points=[x_pos, instance.y, x_pos, instance.y + instance.height],
+                        width=2.0
+                    )
+
+        self.bind(pos=update_all_borders, size=update_all_borders)
+
+    def update_week(self, reference_date):
+        """Rebuilds the weekly view starting from the given reference date."""
+        self.clear_widgets()
+        week_dates = self.get_current_week_dates(reference_date)
+        first_day = week_dates[0]
+        event_dict = get_events_for_week(first_day.year, first_day.isocalendar().week)
+
+        for i, date in enumerate(week_dates):
+            # Column container
+            day_column = BoxLayout(orientation='vertical', size_hint_x=1 / 7)
+
+            # Draw vertical border line
+            with day_column.canvas.after:
+                Color(*self.border_color)
+                v_line = Line(points=[0, 0, 0, 0], width=2.0)
+
+                def update_v_line(inst, val):
+                    v_line.points = [inst.right, inst.y, inst.right, inst.top]
+
+                day_column.bind(pos=update_v_line, size=update_v_line)
+
+            # Scrollable events container
+            scroll = ScrollView(size_hint=(1, 1))
+            events_layout = BoxLayout(
+                orientation='vertical',
+                size_hint_y=None,
+                spacing=0,
+                padding=(0, 20),
+            )
+            events_layout.bind(minimum_height=events_layout.setter('height'))
+
+            # Sort events chronologically
+            events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
+
+            # Add each event to the column
+            for event in events:
+                # Event container
+                event_box = BoxLayout(
+                    orientation='vertical',
+                    size_hint_y=None,
+                    height=150
+                )
+
+                # Conditionally include location and notes only if they're not empty
+                event_text = f"[b][color={self.text_color}]{event.time}[/color][/b]\n" + \
+                             f"[color={self.text_color}]{event.title}[/color]"
+
+                if event.location and event.location.strip():
+                    event_text += f"\n[size=12][color={self.text_color}]Location: {event.location}[/color][/size]"
+
+                if event.notes and event.notes.strip():
+                    event_text += f"\n[size=12][color={self.text_color}]Notes: {event.notes}[/color][/size]"
+                # Event content
+                event_label = Label(
+                    text=event_text,
+                    markup=True,
+                    size_hint_y=None,
+                    text_size=(None, None),
+                    halign='left',
+                    valign='top',
+                    padding=(10, 10)
+                )
+
+                def update_label_size(label, width):
+                    # Set text_size to constrain width and allow flowing text
+                    label.text_size = (width - 20, None)
+
+                    # After next render, texture_size will have the real required size
+                    Clock.schedule_once(lambda dt: adjust_height(label), 0)
+
+                def adjust_height(label):
+                    # Set height based on texture_size with padding
+                    new_height = label.texture_size[1] + 20
+                    label.height = new_height
+                    label.parent.height = new_height + 10  # parent is event_box
+
+                # Bind width changes to update_label_size
+                event_label.bind(width=update_label_size)
+
+                event_box.add_widget(event_label)
+
+                def draw_bottom_border(widget, *_):
+                    widget.canvas.after.clear()
+                    with widget.canvas.after:
+                        Color(*self.border_color)
+                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.5)
+
+                event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
+
+                events_layout.add_widget(event_box)
+
+            scroll.add_widget(events_layout)
+            day_column.add_widget(scroll)
+            self.add_widget(day_column)

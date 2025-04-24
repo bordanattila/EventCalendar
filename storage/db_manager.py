@@ -59,7 +59,7 @@ def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
     event_dict: dict[str, list[Event]] = {}
     for event in events:
         event_dict.setdefault(event.date, []).append(event)
-    print("🔎 Events returned for week:")
+    print("Events returned for week:")
     for key, value in event_dict.items():
         print(f"{key}: {len(value)} events")
 

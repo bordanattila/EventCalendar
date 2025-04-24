@@ -30,6 +30,7 @@ from UI.components.bottom_bar import BottomBar
 from storage.db_manager import get_events_for_month
 
 
+
 class Calendar(GridLayout):
     """
     Main calendar component that includes:
@@ -46,14 +47,19 @@ class Calendar(GridLayout):
         self.dark_mode = is_dark_mode()
 
         today = datetime.date.today()
+        self.current_week_date = today
         self.current_year = today.year
         self.current_month = today.month
         self.is_weekly_view = False
+
 
         # Load theme and settings
         self.theme_manager = ThemeManager()
         self.theme_manager.update_theme()
         self.theme = self.theme_manager.get_theme()
+
+        self.weekly_view = WeeklyView(theme=self.theme)
+        self.weekly_view.update_week(datetime.date(self.current_year, self.current_month, 1))
 
         # Set theme-dependent colors
         self.bg_color = (0.1, 0.1, 0.1, 1) if self.dark_mode else (1, 1, 1, 1)
@@ -85,6 +91,7 @@ class Calendar(GridLayout):
             theme=self.theme,
             on_prev=self.on_prev,
             on_next=self.on_next,
+            is_weekly_view=self.is_weekly_view,
         )
         self.add_widget(self.nav_grid)
 
@@ -104,7 +111,8 @@ class Calendar(GridLayout):
             theme=self.theme,
             on_toggle_view=self.toggle_weekly_view,
             on_add_event=self.on_add_event,
-            on_show_settings=self.show_settings
+            on_show_settings=self.show_settings,
+            is_weekly_view=self.is_weekly_view,
         )
         self.add_widget(self.bottom_bar)
 
@@ -166,23 +174,57 @@ class Calendar(GridLayout):
 
     def on_prev(self, instance):
         """Handles 'Previous Month' button click."""
-        if self.current_month == 1:
-            self.current_month = 12
-            self.current_year -= 1
+        if self.is_weekly_view:
+            # Move to previous week
+            # current_date = datetime.date(self.current_year, self.current_month, 1)
+            # prev_week = current_date - datetime.timedelta(days=7)
+            self.current_week_date -= datetime.timedelta(days=7)
+            self.current_year = self.current_week_date.year
+            self.current_month = self.current_week_date.month
+            # self.current_year = prev_week.year
+            # self.current_month = prev_week.month
+
+            # Update display and rebuild weekly view
+            self.update_current_date_display()
+            # self.weekly_view.update_week(prev_week)
+            self.weekly_view.update_week(self.current_week_date)
+            week_dates = WeeklyView.get_current_week_dates(self.current_week_date)  # or next_week
+            self.weekday_header.update_weekly_dates(week_dates)
         else:
-            self.current_month -= 1
-        self.update_current_date_display()
-        self.build_calendar(self.current_year, self.current_month)
+            # Move to previous month
+            if self.current_month == 1:
+                self.current_month = 12
+                self.current_year -= 1
+            else:
+                self.current_month -= 1
+            self.update_current_date_display()
+            self.build_calendar(self.current_year, self.current_month)
 
     def on_next(self, instance):
         """Handles 'Next Month' button click."""
-        if self.current_month == 12:
-            self.current_month = 1
-            self.current_year += 1
+        if self.is_weekly_view:
+            # Move to next week
+            # current_date = datetime.date(self.current_year, self.current_month, 1)
+            # next_week = current_date + datetime.timedelta(days=7)
+            self.current_week_date += datetime.timedelta(days=7)
+            self.current_year = self.current_week_date.year
+            self.current_month = self.current_week_date.month
+
+            # Update display and rebuild weekly view
+            self.update_current_date_display()
+            self.weekly_view.update_week(self.current_week_date)
+            week_dates = WeeklyView.get_current_week_dates(self.current_week_date)  # or next_week
+            self.weekday_header.update_weekly_dates(week_dates)
+
         else:
-            self.current_month += 1
-        self.update_current_date_display()
-        self.build_calendar(self.current_year, self.current_month)
+            # Move to next month
+            if self.current_month == 12:
+                self.current_month = 1
+                self.current_year += 1
+            else:
+                self.current_month += 1
+            self.update_current_date_display()
+            self.build_calendar(self.current_year, self.current_month)
 
     def update_current_date_display(self):
         new_date = datetime.date(self.current_year, self.current_month, 1)
@@ -388,19 +430,40 @@ class Calendar(GridLayout):
         self.clear_widgets()
         self.is_weekly_view = not self.is_weekly_view
 
+        # Update button texts
+        self.bottom_bar.update_view_button_text(self.is_weekly_view)
+        self.nav_grid.update_button_text(self.is_weekly_view)
+
+        # Re-add the top bar
+        self.add_widget(self.top_bar)
+
+        # Re-add the nav buttons
+        self.add_widget(self.nav_grid)
+
+        week_dates = None
+        if self.is_weekly_view:
+            today = datetime.date.today()
+            week_dates = WeeklyView.get_current_week_dates()  # Use the static method from WeeklyView
+
+        # Re-create the weekday header with appropriate settings
+        self.weekday_header = WeekdayHeader(
+            theme=self.theme,
+            theme_manager=self.theme_manager,
+            dark_mode=self.dark_mode,
+            is_weekly_view=self.is_weekly_view,
+            week_dates=week_dates
+        )
+        self.add_widget(self.weekday_header)
+
+        # Display appropriate view
         if self.is_weekly_view:
             self.weekly_view = WeeklyView(theme=self.theme)
-            self.weekly_view.build_view()
-            self.add_widget(self.top_bar)
-            self.add_widget(self.nav_grid)
-            self.add_widget(self.weekday_header)
             self.add_widget(self.weekly_view)
-            self.add_widget(self.bottom_bar)
         else:
+            # Rebuild the monthly calendar
             self.calendar_display = GridLayout(cols=7, size_hint_y=0.85)
             self.build_calendar(self.current_year, self.current_month)
-            self.add_widget(self.top_bar)
-            self.add_widget(self.nav_grid)
-            self.add_widget(self.weekday_header)
             self.add_widget(self.calendar_display)
-            self.add_widget(self.bottom_bar)
+
+        # Re-add the bottom bar
+        self.add_widget(self.bottom_bar)
