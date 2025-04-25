@@ -12,9 +12,6 @@ This gives 7 tall columns, one per day, each with 24 vertical rows.
 """
 
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.graphics import Color, Line, Rectangle
@@ -24,7 +21,6 @@ from kivy.clock import Clock
 import datetime
 
 from storage.db_manager import get_events_for_week
-from app.theme_manager import ThemeManager
 
 
 class WeeklyView(BoxLayout):
@@ -38,6 +34,20 @@ class WeeklyView(BoxLayout):
         self.spacing = 0  # No spacing between columns
 
         self.build_view()
+
+        # Divider below view pane
+        with self.canvas:
+            Color(*get_color_from_hex(self.theme['border_color']))
+            self.divider_line = Rectangle(
+                pos=(self.x, self.y + self.height * 0.945),
+                size=(self.width, 1),
+            )
+
+        # Keep divider in sync
+        def update_divider(*_):
+            self.divider_line.pos = (self.x, self.y-2)
+            self.divider_line.size = (self.width, 2.5)
+        self.bind(pos=update_divider, size=update_divider)
 
     @staticmethod
     def get_current_week_dates(reference_date=None):
@@ -61,10 +71,10 @@ class WeeklyView(BoxLayout):
             # Column container
             day_column = BoxLayout(orientation='vertical', size_hint_x=1 / 7)
 
-            # Draw vertical border line
+            # Draw vertical borderline
             with day_column.canvas.after:
                 Color(*self.border_color)
-                v_line = Line(points=[0, 0, 0, 0], width=2.0)
+                v_line = Line(points=[0, 0, 0, 0], width=1.2)
 
                 def update_v_line(inst, val):
                     v_line.points = [inst.right, inst.y, inst.right, inst.top]
@@ -135,7 +145,7 @@ class WeeklyView(BoxLayout):
                     widget.canvas.after.clear()
                     with widget.canvas.after:
                         Color(*self.border_color)
-                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.5)
+                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.2)
 
                 event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
 
@@ -156,7 +166,7 @@ class WeeklyView(BoxLayout):
                     Color(*self.border_color)
                     Line(
                         points=[x_pos, instance.y, x_pos, instance.y + instance.height],
-                        width=2.0
+                        width=1.2
                     )
 
         self.bind(pos=update_all_borders, size=update_all_borders)
@@ -172,10 +182,10 @@ class WeeklyView(BoxLayout):
             # Column container
             day_column = BoxLayout(orientation='vertical', size_hint_x=1 / 7)
 
-            # Draw vertical border line
+            # Draw vertical borderline
             with day_column.canvas.after:
                 Color(*self.border_color)
-                v_line = Line(points=[0, 0, 0, 0], width=2.0)
+                v_line = Line(points=[0, 0, 0, 0], width=1.2)
 
                 def update_v_line(inst, val):
                     v_line.points = [inst.right, inst.y, inst.right, inst.top]
@@ -246,7 +256,7 @@ class WeeklyView(BoxLayout):
                     widget.canvas.after.clear()
                     with widget.canvas.after:
                         Color(*self.border_color)
-                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.5)
+                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.2)
 
                 event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
 

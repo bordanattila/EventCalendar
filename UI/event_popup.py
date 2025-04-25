@@ -14,6 +14,8 @@ from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.utils import get_color_from_hex
 from kivy.graphics import Color as Colour, RoundedRectangle as RR, Rectangle
+from kivy.animation import Animation
+from kivy.clock import Clock
 
 import datetime
 
@@ -169,8 +171,11 @@ class AddEventPopup(Popup):
         notes = self.notes_input.text.strip()
 
         if not title or not date or not time:
-            if self.app_ref:
-                self.app_ref.show_toast('Please fill in required fields.')
+            # if self.app_ref:
+            #     self.app_ref.show_toast('Please fill in required fields.')
+            # return
+            # Create and show a toast within the popup
+            self.show_popup_toast('Please fill in required fields.')
             return
 
         event_data = {
@@ -185,17 +190,67 @@ class AddEventPopup(Popup):
             self.on_save_callback(event_data)
 
         save_event_to_db(event_data)
-        self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
+        # self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
         self.dismiss()
+
+        # Show the app toast only after popup is dismissed
+        if self.app_ref:
+            self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
 
         # Refresh calendar to show new event
         self.app_ref.selected_day = None
         self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
 
-    def _update_popup_border(self, *args):
+    def _update_popup_border(self, *_):
         self._popup_border.pos = self.pos
         self._popup_border.size = self.size
         self._popup_bg.pos = self.pos
         self._popup_bg.size = self.size
         self._overlay_rect.pos = self.pos
         self._overlay_rect.size = self.size
+
+    def show_popup_toast(self, message, duration=2.5):
+        """Shows a toast message within the popup."""
+
+        # Create toast label
+        toast = Label(
+            text=message,
+            markup=True,
+            size_hint=(None, None),
+            size=(self.width * 0.2, 30),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            halign='center',
+            valign='middle',
+            color=get_color_from_hex('#FFFFFF'),
+            padding=(20, 10),
+            font_size='16sp',
+        )
+
+        # Set the background color (red for errors)
+        toast.canvas.before.clear()
+        with toast.canvas.before:
+            Colour(*get_color_from_hex('#FF4C4C'))
+            toast_bg = RR(pos=toast.pos, size=toast.size, radius=[10])
+
+        # Update the background when the label size changes
+        def update_bg(*_):
+            toast_bg.pos = toast.pos
+            toast_bg.size = toast.size
+
+        toast.bind(size=update_bg, pos=update_bg)
+
+        # Add to popup content
+        self.content.add_widget(toast)
+
+        # Animate in
+        toast.opacity = 0
+        anim_in = Animation(opacity=1, duration=0.2)
+
+        # Animate out after a delay
+        def remove_toast(*_):
+            anim_out = Animation(opacity=0, duration=0.2)
+            anim_out.bind(on_complete=lambda *x: self.content.remove_widget(toast))
+            anim_out.start(toast)
+
+        anim_in.start(toast)
+        Clock.schedule_once(remove_toast, duration)

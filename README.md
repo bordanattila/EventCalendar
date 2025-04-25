@@ -96,5 +96,5 @@ Attila Bordán
 Engineer. Builder. 
 
 [LinkedIn](https://www.linkedin.com/in/bordanattila/)  
-[Portfolio]((https://bordanattila.github.io/Portfolio/))
+[Portfolio](https://bordanattila.github.io/Portfolio/)
 ---

@@ -52,7 +52,6 @@ class Calendar(GridLayout):
         self.current_month = today.month
         self.is_weekly_view = False
 
-
         # Load theme and settings
         self.theme_manager = ThemeManager()
         self.theme_manager.update_theme()
@@ -383,21 +382,22 @@ class Calendar(GridLayout):
         """
         toast = Label(
             text=message,
+            markup=True,
             size_hint=(None, None),
-            size=(self.width * 0.8, 40),
-            pos_hint={'center_x': 0.5},
+            size=(self.width * 0.2, 30),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
             halign='center',
-            valign='bottom',
-            # color=get_color_from_hex('#FF4C4C'),
-            # background_color=get_color_from_hex('#ff3333'),
+            valign='middle',
             color=get_color_from_hex('#FFFFFF'),
-            bold=True
+            padding=(20, 10),
+            bold=True,
         )
+        # toast.text_size = toast.size
         toast.canvas.before.clear()
         with toast.canvas.before:
             # Color(*self.theme['button_color'])  # background color
             Color(*get_color_from_hex('#FF4C4C'))
-            toast_bg = Rectangle(pos=toast.pos, size=toast.size)
+            toast_bg = RoundedRectangle(pos=toast.pos, size=toast.size, radius=[10])
 
         # Keep background rectangle in sync
         def update_rect(*_):
@@ -406,13 +406,24 @@ class Calendar(GridLayout):
 
         toast.bind(pos=update_rect, size=update_rect)
 
+        # toast.bind(size=lambda instance, value: setattr(instance, 'text_size', value))
+
         if self.float_root:
             self.float_root.add_widget(toast)
 
+            # Animate in
+            toast.opacity = 0
+            anim_in = Animation(opacity=1, duration=0.2)
+
+            # Animate out after a delay
+
             def dismiss_toast(*_):
-                anim = Animation(opacity=0, duration=0.5)
-                anim.bind(on_complete=lambda *args: self.float_root.remove_widget(toast))
-                anim.start(toast)
+                anim_out = Animation(opacity=0, duration=0.2)
+                anim_out.bind(on_complete=lambda *x: self.float_root
+                              .remove_widget(toast))
+                anim_out.start(toast)
+
+            anim_in.start(toast)
 
             Clock.schedule_once(dismiss_toast, duration)
         else:
@@ -423,7 +434,7 @@ class Calendar(GridLayout):
         self.float_root = float_root
 
     def show_settings(self, instance=None):
-        popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root))
+        popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root), self.theme)
         popup.open()
 
     def toggle_weekly_view(self, instance):

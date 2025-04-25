@@ -14,7 +14,7 @@ class ThemeManager:
 
         # Define available themes
         self.themes = {
-            'light': {
+            'Light': {
                 'bg_color': '#FFEFD5',
                 'text_color': '#000000',
                 'border_color': '#000000',
@@ -25,7 +25,7 @@ class ThemeManager:
                 'nav_button_color': '#DADADA',
                 'input_bg_color': '#FFEFD5',
             },
-            'dark': {
+            'Dark': {
                 'bg_color': '#1A1A1A',
                 'text_color': '#FFFFFF',
                 'border_color': '#FFFFFF',
@@ -36,7 +36,7 @@ class ThemeManager:
                 'nav_button_color': '#444444',
                 'input_bg_color': '#444444',
             },
-            'blueberry': {
+            'Blueberry': {
                 'bg_color': '#334080',
                 'text_color': '#EEEEEE',
                 'border_color': '#CCDDFF',
@@ -47,7 +47,7 @@ class ThemeManager:
                 'nav_button_color': '#3C4F94',
                 'input_bg_color': '#4B5FA3',
             },
-            'sunset': {
+            'Sunset': {
                 'bg_color': '#FFDAB3',
                 'text_color': '#222222',
                 'border_color': '#CC5522',
@@ -106,7 +106,7 @@ class ThemeManager:
             if light_start <= now < dark_start:
                 self.settings['active_theme'] = self.settings['preferred_theme']
             else:
-                self.settings['active_theme'] = 'dark'
+                self.settings['active_theme'] = 'Dark'
         else:
             self.settings['active_theme'] = self.settings['preferred_theme']
 
