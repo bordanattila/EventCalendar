@@ -14,6 +14,7 @@ This gives 7 tall columns, one per day, each with 24 vertical rows.
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
+from kivy.uix.image import Image
 from kivy.graphics import Color, Line, Rectangle
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
@@ -103,15 +104,25 @@ class WeeklyView(BoxLayout):
                     height=150
                 )
 
+                # Create an icon image
+                icon = Image(
+                    source='assets/location.png',
+                    size_hint=(None, 1),
+                    width=16,
+                    allow_stretch=True
+                )
+
                 # Conditionally include location and notes only if they're not empty
-                event_text = f"[b][color={self.text_color}]{event.time}[/color][/b]\n" + \
+                event_text = f"[b][color={self.theme['time_color']}]{event.time}[/color][/b]\n" + \
                              f"[color={self.text_color}]{event.title}[/color]"
 
                 if event.location and event.location.strip():
-                    event_text += f"\n[size=12][color={self.text_color}]Location: {event.location}[/color][/size]"
+                    event_text += f"\n[size=12][color={self.theme['location_color']}][u]Location:[/u] " \
+                                  f"{event.location}[/color][/size]\n"
 
                 if event.notes and event.notes.strip():
-                    event_text += f"\n[size=12][color={self.text_color}]Notes: {event.notes}[/color][/size]"
+                    event_text += f"\n[size=12][color={self.theme['notes_color']}][u]Notes:[/u] " \
+                                  f"{event.notes}[/color][/size]"
                 # Event content
                 event_label = Label(
                     text=event_text,

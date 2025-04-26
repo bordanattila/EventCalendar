@@ -16,7 +16,7 @@ A lightweight, standalone scheduling board built with **Python**, **Kivy**, and 
 
 ## 📸 Screenshot
 
-> *(coming soon)*  
+![Montly View](./assets/monthly_view.png)  
 > _Full-screen calendar on a Raspberry Pi touchscreen with highlighted dates and event popups._
 
 ---
@@ -35,7 +35,7 @@ A lightweight, standalone scheduling board built with **Python**, **Kivy**, and 
 ## 🏗️ File Structure
 ```commandline
 EventCalendar/
-├── main.py                 # Entry point
+├── main.py                # Entry point
 ├── /app/                  # Application controller & logic
 ├── /ui/                   # UI components (calendar, popups)
 ├── /models/               # SQLAlchemy models

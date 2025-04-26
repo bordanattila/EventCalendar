@@ -24,6 +24,10 @@ class ThemeManager:
                 'popup_border_color': '#333333',
                 'nav_button_color': '#DADADA',
                 'input_bg_color': '#FFEFD5',
+                'time_color': '#D2691E',  # Chocolate — warm, readable on light
+                'title_color': '#222222',  # Stronger black for headers
+                'location_color': '#555555',  # Soft gray
+                'notes_color': '#777777',  # Muted gray-brown
             },
             'Dark': {
                 'bg_color': '#1A1A1A',
@@ -35,6 +39,10 @@ class ThemeManager:
                 'popup_border_color': '#333333',
                 'nav_button_color': '#444444',
                 'input_bg_color': '#444444',
+                'time_color': '#FFC107',
+                'title_color': '#FFFFFF',
+                'location_color': '#AAAAAA',
+                'notes_color': '#888888',
             },
             'Blueberry': {
                 'bg_color': '#334080',
@@ -46,6 +54,10 @@ class ThemeManager:
                 'popup_border_color': '#222222',
                 'nav_button_color': '#3C4F94',
                 'input_bg_color': '#4B5FA3',
+                'time_color': '#FFC107',
+                'title_color': '#EEEEEE',
+                'location_color': '#AAAAAA',
+                'notes_color': '#888888',
             },
             'Sunset': {
                 'bg_color': '#FFDAB3',
@@ -57,6 +69,10 @@ class ThemeManager:
                 'popup_border_color': '#333333',
                 'nav_button_color': '#FFA07A',
                 'input_bg_color': '#FFDAB3',
+                'time_color': '#C1440E',  # Burnt orange – bold, warm
+                'title_color': '#222222',  # Same deep brown for good contrast
+                'location_color': '#5C3B1E',  # Dark cocoa – cozy, earthy
+                'notes_color': '#7A5C4F',  # Muted clay
             }
         }
 

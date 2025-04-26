@@ -20,6 +20,8 @@ from kivy.clock import Clock
 import datetime
 
 from storage.db_manager import save_event_to_db
+from app.utils import create_themed_button
+# TODO: Add recurring event capability
 
 
 class AddEventPopup(Popup):
@@ -28,10 +30,12 @@ class AddEventPopup(Popup):
         self.selected_date = kwargs.pop('initial_date', datetime.date.today())
         super().__init__(**kwargs)
         self.app_ref = app_ref
-        self.title = 'Add Event'
-        self.size_hint = (0.85, 0.85)
-        self.on_save_callback = on_save_callback
         self.theme = theme or {}
+        self.title = 'Add Event'
+        self.title_color = get_color_from_hex(theme['text_color'])
+        self.title_align = 'center'
+        self.size_hint = (0.5, 0.5)
+        self.on_save_callback = on_save_callback
         self.background = ''
         self.background_color = get_color_from_hex(self.theme.get('bg_color', '#FFFFFF'))
         self.bg_color = self.theme.get('bg_color', (1, 1, 1, 1))
@@ -41,6 +45,7 @@ class AddEventPopup(Popup):
             size_hint_y=None,
             height=40
         )
+
         # Styled Border + Rounded Background
         with self.canvas.before:
             Colour(*self.theme.get('bg_color', (1, 1, 1, 1)))
@@ -135,24 +140,11 @@ class AddEventPopup(Popup):
         # Buttons
         button_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
 
-        save_btn = Button(
-            text='Save',
-            background_normal='',
-            background_color=self.theme.get('button_color', (0.9, 0.9, 0.9, 1)),
-            color=self.theme.get('text_color', '#000000')
-        )
-        cancel_btn = Button(
-            text='Cancel',
-            background_normal='',
-            background_color=self.theme.get('button_color', (0.9, 0.9, 0.9, 1)),
-            color=self.theme.get('text_color', '#000000')
-        )
+        self.save_btn = create_themed_button('Save', self.theme, on_release=self.save_event)
+        self.cancel_btn = create_themed_button('Cancel', self.theme, on_release=self.dismiss)
 
-        save_btn.bind(on_release=self.save_event)
-        cancel_btn.bind(on_release=self.dismiss)
-
-        button_box.add_widget(cancel_btn)
-        button_box.add_widget(save_btn)
+        button_box.add_widget(self.cancel_btn)
+        button_box.add_widget(self.save_btn)
 
         container = BoxLayout(orientation='vertical')
         container.add_widget(layout)

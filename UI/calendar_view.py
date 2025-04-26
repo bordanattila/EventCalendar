@@ -10,6 +10,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.image import Image
 from kivy.graphics import Color, Line, Rectangle, RoundedRectangle
 from kivy.core.window import Window
 from kivy.clock import Clock
@@ -27,8 +28,8 @@ from UI.components.top_bar import TopBar
 from UI.components.nav_buttons import NavButtons
 from UI.components.weekday_header import WeekdayHeader
 from UI.components.bottom_bar import BottomBar
+from UI.components.show_day_popup import show_day_popup
 from storage.db_manager import get_events_for_month
-
 
 
 class Calendar(GridLayout):
@@ -260,7 +261,7 @@ class Calendar(GridLayout):
         """
         Wraps a calendar day label in a BoxLayout with a black border.
         """
-        # box = BoxLayout(orientation='vertical', padding=[4, 25, 4, 0], spacing=2)
+
         box = FloatLayout()
 
         # Format date text
@@ -285,17 +286,13 @@ class Calendar(GridLayout):
         box.add_widget(day_label)
 
         # Cell input area
-        # anchor = AnchorLayout(anchor_x='center', anchor_y='center')
         btn = Button(
             background_normal='',
-            # background_color=self.theme['cell_color'],
             background_color=(0, 0, 0, 0),
-            # color=get_color_from_hex(self.theme['text_color']),
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
         )
         btn.bind(on_release=lambda instance: self.set_selected_day(day_date.day))
-        # anchor.add_widget(btn)
         box.add_widget(btn)
 
         # Draw cell border
@@ -306,27 +303,91 @@ class Calendar(GridLayout):
         def update_border(*_):
             border.rectangle = (box.x, box.y, box.width, box.height)
 
+        box.bind(pos=update_border, size=update_border)
+
+        # Limit displayed events to 3
+        MAX_EVENTS = 3
+        extra_events = max(0, len(events) - MAX_EVENTS)
+
         # Add event previews (just time + title)
-        for i, event in enumerate(sorted(events, key=lambda e: e.time)):
-            short_title = (event.title[:22] + '...') if len(event.title) > 25 else event.title
-            preview = Label(
-                text=f"[size=12][color={self.text_color}]* {short_title} @ {event.time}[/color][/size]",
-                markup=True,
-                font_size='12sp',
-                halign='left',
-                valign='top',
+        for i, event in enumerate(sorted(events, key=lambda e: e.time)[:MAX_EVENTS]):
+            short_title = (event.title[:30] + '...') if len(event.title) > 33 else event.title
+            event_box = BoxLayout(
+                orientation='horizontal',
+                padding=[4, 2],
+                spacing=5,
                 size_hint=(1, None),
-                height=15,
-                pos_hint={'x': 0, 'top': 0.85 - i * 0.15},
+                height=25,
+                pos_hint={'x': 0, 'top': 0.85 - i * 0.20},
+            )
+
+            # Draw background for each event
+            with event_box.canvas.before:
+                Color(0.2, 0.2, 0.2, 0.2)  # Light background for contrast
+                event_bg_rect = RoundedRectangle(pos=event_box.pos, size=event_box.size, radius=[6])
+
+            # Create a closure that captures this specific rectangle
+            def make_updater(rect):
+                def update_event_bg(instance, value):
+                    rect.pos = (instance.x + 4, instance.y)
+                    rect.size = (instance.width - 8, instance.height)
+
+                return update_event_bg
+            # Bind with the specific updater for this event box
+            event_box.bind(pos=make_updater(event_bg_rect), size=make_updater(event_bg_rect))
+
+            # Create an icon image
+            icon = Image(
+                source='assets/pin.png',
+                size_hint=(None, 1),
+                width=16,
+                allow_stretch=True
+            )
+
+            # Add the event label
+            preview_label = Label(
+                text=f"[size=12][color={self.text_color}][b]{event.time}[/b] {short_title}[/color][/size]",
+                markup=True,
+                size_hint=(1, 1),
+                halign='left',
+                valign='middle',
                 padding=(5, 2),
             )
-            preview.bind(width=lambda instance, value: setattr(instance, 'text_size', (value, None)),
-                         texture_size=lambda instance, value: setattr(instance, 'height', value[1]),
-                         )
-            # preview.bind(size=preview.setter('text_size'))
-            box.add_widget(preview)
+            preview_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
+
+            event_box.add_widget(icon)
+            event_box.add_widget(preview_label)
+
+            box.add_widget(event_box)
+
+        # If there are more than MAX_EVENTS, show a "+n more" pill
+        if extra_events > 0:
+            more_events_button = Button(
+                text=f"[color={self.text_color}][b]+{extra_events} more...[/b][/color]",
+                markup=True,
+                font_size='16sp',
+                size_hint=(1, None),
+                height=20,
+                pos_hint={'x': 0, 'top': 0.20},
+                halign='center',
+                valign='middle',
+                background_normal='',
+                background_color=(0, 0, 0, 0),
+                color=get_color_from_hex(self.text_color),
+            )
+            # with more_events_button.canvas.before:
+            #     Color(0.3, 0.3, 0.3, 0.3)
+            #     bg = RoundedRectangle(pos=more_events_button.pos, size=more_events_button.size, radius=[6])
+            # more_events_button.bind(pos=lambda *args: setattr(bg, 'pos', more_events_button.pos))
+            # more_events_button.bind(size=lambda *args: setattr(bg, 'size', more_events_button.size))
+
+            more_events_button.bind(on_release=lambda inst: show_day_popup(day_date, events, self.theme))
+            print('day_date', day_date)
+            print('events', events)
+            box.add_widget(more_events_button)
 
         box.bind(pos=update_border, size=update_border)
+
         return box
 
     def rebuild_ui(self, root_ref):
@@ -374,7 +435,6 @@ class Calendar(GridLayout):
     def save_event(self, event_data):
         print('Saved Event:', event_data)
         self.show_toast(f"Event '{event_data['title']}' added!")
-        # TODO: Save to file/db and refresh calendar display
 
     def show_toast(self, message, duration=2.5):
         """

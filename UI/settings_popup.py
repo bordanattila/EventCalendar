@@ -4,9 +4,9 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.uix.switch import Switch
-from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 from kivy.utils import get_color_from_hex
+from app.utils import create_themed_button
 
 
 def create_settings_popup(theme_manager, apply_callback, theme):
@@ -17,57 +17,45 @@ def create_settings_popup(theme_manager, apply_callback, theme):
     :param theme: Dict containing current theme colors
     :return: Kivy Popup instance.
     """
-    popup_layout = BoxLayout(orientation='vertical', spacing=10, padding=20)
+    settings_popup_layout = BoxLayout(orientation='vertical', spacing=10, padding=20)
 
     # Background color
     bg_color = get_color_from_hex(theme['bg_color'])
     text_color = get_color_from_hex(theme['text_color'])
 
     # Apply background rectangle
-    with popup_layout.canvas.before:
+    with settings_popup_layout.canvas.before:
         Color(*bg_color)
-        bg_rect = RoundedRectangle(pos=popup_layout.pos, size=popup_layout.size, radius=[15])
+        bg_rect = RoundedRectangle(pos=settings_popup_layout.pos, size=settings_popup_layout.size, radius=[15])
 
     def update_bg(*_):
-        bg_rect.pos = popup_layout.pos
-        bg_rect.size = popup_layout.size
+        bg_rect.pos = settings_popup_layout.pos
+        bg_rect.size = settings_popup_layout.size
 
-    popup_layout.bind(pos=update_bg, size=update_bg)
-
-    # Title
-    title_label = Label(
-        text='[b]Settings[/b]',
-        markup=True,
-        font_size=20,
-        size_hint_y=None,
-        halign='center',
-        valign='top',
-        height=40,
-        color=text_color,
-    )
-    popup_layout.add_widget(title_label)
+    settings_popup_layout.bind(pos=update_bg, size=update_bg)
 
     # Theme selection
-    popup_layout.add_widget(Label(text='Select Theme:', size_hint_y=None, height=30, color=text_color))
+    settings_popup_layout.add_widget(Label(text='Select Theme:', size_hint_y=None, height=30, color=text_color))
     theme_spinner = Spinner(
         text=theme_manager.settings['preferred_theme'],
         values=list(theme_manager.themes.keys()),
         size_hint_y=None,
         height=44,
+        background_normal='',
         background_color=get_color_from_hex(theme['button_color']),
         color=text_color,
     )
-    popup_layout.add_widget(theme_spinner)
+    settings_popup_layout.add_widget(theme_spinner)
 
     # Auto Mode Toggle
-    auto_popup_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=10)
-    auto_popup_layout.add_widget(Label(text="Auto Mode (Light/Dark):", color=text_color, size_hint_x=0.7))
+    auto_settings_popup_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=10)
+    auto_settings_popup_layout.add_widget(Label(text="Auto Mode (Light/Dark):", color=text_color, size_hint_x=0.7))
     auto_mode_switch = Switch(active=theme_manager.settings["auto_mode"], size_hint_x=0.3)
-    auto_popup_layout.add_widget(auto_mode_switch)
-    popup_layout.add_widget(auto_popup_layout)
+    auto_settings_popup_layout.add_widget(auto_mode_switch)
+    settings_popup_layout.add_widget(auto_settings_popup_layout)
 
     # Light Mode Start
-    popup_layout.add_widget(Label(text='Light Mode Start (HH:MM):', size_hint_y=None, height=30, color=text_color))
+    settings_popup_layout.add_widget(Label(text='Light Mode Start (HH:MM):', size_hint_y=None, height=30, color=text_color))
     light_input = TextInput(
         text=theme_manager.settings['light_start'],
         hint_text='HH:MM',
@@ -75,10 +63,10 @@ def create_settings_popup(theme_manager, apply_callback, theme):
         size_hint_y=None,
         height=44
     )
-    popup_layout.add_widget(light_input)
+    settings_popup_layout.add_widget(light_input)
 
     # Dark Mode Start
-    popup_layout.add_widget(Label(text='Dark Mode Start (HH:MM):', size_hint_y=None, height=30, color=text_color))
+    settings_popup_layout.add_widget(Label(text='Dark Mode Start (HH:MM):', size_hint_y=None, height=30, color=text_color))
     dark_input = TextInput(
         text=theme_manager.settings['dark_start'],
         hint_text='HH:MM',
@@ -86,20 +74,17 @@ def create_settings_popup(theme_manager, apply_callback, theme):
         size_hint_y=None,
         height=44
     )
-    popup_layout.add_widget(dark_input)
+    settings_popup_layout.add_widget(dark_input)
 
-    # Save Button
-    save_button = Button(
-        text='Save and Apply',
-        size_hint_y=None,
-        height=50,
-        color=text_color,
-        background_normal='',
-        background_color=get_color_from_hex(theme['button_color']),
-    )
-    popup_layout.add_widget(save_button)
-
-    popup = Popup(title='', content=popup_layout, size_hint=(0.8, 0.8), background='')
+    popup = Popup(
+        title='Settings',
+        title_color=get_color_from_hex(theme['text_color']),
+        title_align='center',
+        content=settings_popup_layout,
+        size_hint=(0.5, 0.5),
+        background='',
+        background_color=get_color_from_hex(theme['bg_color']),
+        )
 
     def toggle_spinner_state(*_):
         theme_spinner.disabled = auto_mode_switch.active
@@ -112,8 +97,12 @@ def create_settings_popup(theme_manager, apply_callback, theme):
         popup.dismiss()
         apply_callback()  # Refresh UI
 
+    # Save Button
+    save_button = create_themed_button('Save and Apply', theme, on_release=on_save_settings)
+    settings_popup_layout.add_widget(save_button)
+
     auto_mode_switch.bind(active=toggle_spinner_state)
-    save_button.bind(on_release=on_save_settings)
+    save_button.bind()
     toggle_spinner_state()
 
     return popup

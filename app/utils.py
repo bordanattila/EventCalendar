@@ -53,15 +53,15 @@ def is_dark_mode():
     return not (7 <= current_hour < 20)
 
 
-def create_themed_button(text, theme, on_press=None, bg_override=None, font_override=None):
+def create_themed_button(text, theme, on_press=None, bg_override=None, font_override=None, on_release=None):
     """
     Creates a styled button inside a BoxLayout using the given theme.
     Returns the BoxLayout with the themed Button inside.
     """
 
     box = BoxLayout(
-        size_hint=(1, 1),
-        height=50,
+        size_hint=(1, None),
+        height=35,
         spacing=5,
         padding=[10, 0],
     )
@@ -98,6 +98,8 @@ def create_themed_button(text, theme, on_press=None, bg_override=None, font_over
 
     if on_press:
         button.bind(on_press=on_press)
+    if on_release:
+        button.bind(on_release=on_release)
 
     box.add_widget(button)
     return box
