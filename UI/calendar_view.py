@@ -4,7 +4,6 @@ calendar_view.py
 Main Calendar view component with dynamic theme support and settings popup.
 """
 
-from app.utils import is_dark_mode
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -20,6 +19,7 @@ from kivy.animation import Animation
 import calendar
 import datetime
 
+from app.utils import is_dark_mode
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
 from UI.settings_popup import create_settings_popup

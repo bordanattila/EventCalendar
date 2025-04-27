@@ -24,10 +24,10 @@ class ThemeManager:
                 'popup_border_color': '#333333',
                 'nav_button_color': '#DADADA',
                 'input_bg_color': '#FFEFD5',
-                'time_color': '#D2691E',  # Chocolate — warm, readable on light
-                'title_color': '#222222',  # Stronger black for headers
-                'location_color': '#555555',  # Soft gray
-                'notes_color': '#777777',  # Muted gray-brown
+                'time_color': '#D2691E',
+                'title_color': '#222222',
+                'location_color': '#555555',
+                'notes_color': '#777777',
             },
             'Dark': {
                 'bg_color': '#1A1A1A',
@@ -69,10 +69,10 @@ class ThemeManager:
                 'popup_border_color': '#333333',
                 'nav_button_color': '#FFA07A',
                 'input_bg_color': '#FFDAB3',
-                'time_color': '#C1440E',  # Burnt orange – bold, warm
-                'title_color': '#222222',  # Same deep brown for good contrast
-                'location_color': '#5C3B1E',  # Dark cocoa – cozy, earthy
-                'notes_color': '#7A5C4F',  # Muted clay
+                'time_color': '#C1440E',
+                'title_color': '#222222',
+                'location_color': '#5C3B1E',
+                'notes_color': '#7A5C4F',
             }
         }
 

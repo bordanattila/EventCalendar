@@ -10,6 +10,13 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, RoundedRectangle
 from kivy.utils import get_color_from_hex
 
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+API_KEY = os.getenv("api_key")
+
 
 def get_time():
     """
@@ -103,3 +110,32 @@ def create_themed_button(text, theme, on_press=None, bg_override=None, font_over
 
     box.add_widget(button)
     return box
+
+
+def get_location():
+    try:
+        response = requests.get('https://ipinfo.io/json')
+        data = response.json()
+        loc = data.get('loc')
+        city = data.get('city')
+        lat, lon = map(float, loc.split(','))
+        return lat, lon, city
+    except Exception as e:
+        print("Failed to get location", e)
+        return None, None, None
+
+
+def get_weather(lat, lon):
+    try:
+        url = (
+            f"https://api.openweathermap.org/data/2.5/weather?"
+            f"lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
+        )
+        response = requests.get(url)
+        data = response.json()
+        temp = round(data["main"]["temp"])
+        icon = data["weather"][0]["icon"]
+        return temp, icon
+    except Exception as e:
+        print("Failed to get weather:", e)
+        return None, None

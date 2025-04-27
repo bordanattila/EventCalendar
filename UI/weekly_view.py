@@ -118,11 +118,9 @@ class WeeklyView(BoxLayout):
 
                 if event.location and event.location.strip():
                     event_text += f"\n[size=12][color={self.theme['location_color']}][u]Location:[/u] " \
-                                  f"{event.location}[/color][/size]\n"
+                                  f"{event.location}[/color][/size]"
 
-                if event.notes and event.notes.strip():
-                    event_text += f"\n[size=12][color={self.theme['notes_color']}][u]Notes:[/u] " \
-                                  f"{event.notes}[/color][/size]"
+
                 # Event content
                 event_label = Label(
                     text=event_text,
