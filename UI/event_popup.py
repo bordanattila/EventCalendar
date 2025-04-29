@@ -10,7 +10,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
-from kivy.uix.button import Button
+from kivy.uix.spinner import Spinner
 from kivy.uix.boxlayout import BoxLayout
 from kivy.utils import get_color_from_hex
 from kivy.graphics import Color as Colour, RoundedRectangle as RR, Rectangle
@@ -19,19 +19,19 @@ from kivy.clock import Clock
 
 import datetime
 
-from storage.db_manager import save_event_to_db
+from storage.db_manager import save_event_to_db, stop_recurring_event, update_event_in_db
 from app.utils import create_themed_button
-# TODO: Add recurring event capability
 
 
 class AddEventPopup(Popup):
-    def __init__(self, app_ref, on_save_callback=None, theme=None, **kwargs):
+    def __init__(self, app_ref, on_save_callback=None, theme=None, event=None, **kwargs):
         self.app_ref = kwargs.pop('app_ref', None)
         self.selected_date = kwargs.pop('initial_date', datetime.date.today())
         super().__init__(**kwargs)
         self.app_ref = app_ref
         self.theme = theme or {}
-        self.title = 'Add Event'
+        self.event = event
+        self.title = 'Edit Event' if self.event else 'Add Event'
         self.title_color = get_color_from_hex(theme['text_color'])
         self.title_align = 'center'
         self.size_hint = (0.5, 0.5)
@@ -39,6 +39,7 @@ class AddEventPopup(Popup):
         self.background = ''
         self.background_color = get_color_from_hex(self.theme.get('bg_color', '#FFFFFF'))
         self.bg_color = self.theme.get('bg_color', (1, 1, 1, 1))
+
         self.date_label = Label(
             text=str(self.selected_date),
             color=get_color_from_hex(self.theme.get('text_color', '#000000')),
@@ -137,8 +138,36 @@ class AddEventPopup(Popup):
         layout.add_widget(Label())
         layout.add_widget(Label())
 
+        # Recurrence selection
+        self.recurrence_label = Label(
+            text='Repeat:',
+            size_hint=(1, None),
+            height=30,
+            color=get_color_from_hex(self.theme['text_color']),
+            halign='left'
+        )
+        self.recurrence_spinner = Spinner(
+            text='None',
+            values=('None', 'Daily', 'Weekly', 'Monthly', 'Yearly'),
+            size_hint=(1, None),
+            height=44,
+            background_color=get_color_from_hex(self.theme['button_color']),
+            color=get_color_from_hex(self.theme['text_color']),
+        )
+
+        layout.add_widget(self.recurrence_label)
+        layout.add_widget(self.recurrence_spinner)
+
         # Buttons
         button_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=None, height=50)
+        # Only show 'Stop Recurrence' if editing a recurring event
+        if self.event and self.event.recurrence.lower() != "none":
+            self.stop_button = create_themed_button(
+                "Stop Recurrence",
+                self.theme,
+                on_release=self.handle_stop_recurrence
+            )
+            button_box.add_widget(self.stop_button)
 
         self.save_btn = create_themed_button('Save', self.theme, on_release=self.save_event)
         self.cancel_btn = create_themed_button('Cancel', self.theme, on_release=self.dismiss)
@@ -152,20 +181,26 @@ class AddEventPopup(Popup):
 
         self.content = container
 
+        if self.event:
+            self.title_input.text = self.event.title
+            self.date_label.text = self.event.date
+            self.time_input.text = self.event.time
+            self.location_input.text = self.event.location
+            self.notes_input.text = self.event.notes
+            self.recurrence_spinner.text = self.event.recurrence
+
     def set_selected_date(self, date_obj):
         self.date_label.text = str(date_obj)
 
-    def save_event(self, event_data):
+    def save_event(self, *_):
         title = self.title_input.text.strip()
         date = self.date_label.text.strip()
         time = self.time_input.text.strip()
         location = self.location_input.text.strip()
         notes = self.notes_input.text.strip()
+        recurrence = self.recurrence_spinner.text.strip()
 
         if not title or not date or not time:
-            # if self.app_ref:
-            #     self.app_ref.show_toast('Please fill in required fields.')
-            # return
             # Create and show a toast within the popup
             self.show_popup_toast('Please fill in required fields.')
             return
@@ -175,23 +210,28 @@ class AddEventPopup(Popup):
             'date': date,
             'time': time,
             'location': location,
-            'notes': notes
+            'notes': notes,
+            'recurrence': recurrence,
         }
+
+        if self.event:
+            update_event_in_db(self.event.id, event_data)
+        else:
+            save_event_to_db(event_data)
 
         if self.on_save_callback:
             self.on_save_callback(event_data)
 
-        save_event_to_db(event_data)
-        # self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
         self.dismiss()
 
         # Show the app toast only after popup is dismissed
-        if self.app_ref:
+        if hasattr(self.app_ref, "show_toast"):
             self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
 
         # Refresh calendar to show new event
-        self.app_ref.selected_day = None
-        self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
+        if hasattr(self.app_ref, "build_view"):
+            self.app_ref.selected_day = None
+            self.app_ref.build_view(self.app_ref.current_year, self.app_ref.current_month)
 
     def _update_popup_border(self, *_):
         self._popup_border.pos = self.pos
@@ -246,3 +286,21 @@ class AddEventPopup(Popup):
 
         anim_in.start(toast)
         Clock.schedule_once(remove_toast, duration)
+
+    def handle_stop_recurrence(self, *_):
+        if self.event and stop_recurring_event(self.event.id):
+            self.show_popup_toast("Recurrence stopped.")
+            self.dismiss()
+
+            # Delay the calendar refresh to occur AFTER the popup closes
+            def refresh_ui(dt):
+                if hasattr(self.app_ref, "rebuild_ui"):
+                    float_root = getattr(self.app_ref, "float_root", None)
+                    if float_root:
+                        self.app_ref.rebuild_ui(float_root)
+                    else:
+                        print("⚠️ Warning: float_root not found for rebuild.")
+
+            Clock.schedule_once(refresh_ui, 0.3)
+        else:
+            self.show_popup_toast("Unable to stop recurrence.")

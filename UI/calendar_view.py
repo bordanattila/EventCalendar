@@ -19,7 +19,7 @@ from kivy.animation import Animation
 import calendar
 import datetime
 
-from app.utils import is_dark_mode
+from app.utils import is_dark_mode, is_event_on_date
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
 from UI.settings_popup import create_settings_popup
@@ -120,57 +120,6 @@ class Calendar(GridLayout):
         Clock.schedule_interval(self.check_theme_switch, 600)
 
         self.float_root = None
-
-    def create_themed_button(self, text, callback=None, button_type='standard', bg_override=None, font_override=None):
-        """
-        Creates a styled button with shadow and background, using theme settings.
-        button_type: 'standard' (bottom bar), 'nav' (navigation bar), or custom
-        """
-        box = BoxLayout(size_hint=(1, 1), height=50, spacing=5, padding=[10, 0])
-
-        # Pick the correct background color based on button type
-        if bg_override:
-            bg_color = bg_override
-        elif button_type == 'nav':
-            bg_color = self.theme.get('nav_button_color', self.theme['button_color'])
-        else:
-            bg_color = self.theme['button_color']
-
-        # Background + Shadow drawing
-        with box.canvas.before:
-            # Fix for shadow being white: ensure the alpha is correct and the canvas draws at the right time
-            Color(0, 0, 0, 0.25)
-            shadow = RoundedRectangle(pos=(box.x + 2, box.y - 2), size=box.size, radius=[10])
-
-            Color(*get_color_from_hex(bg_color))
-            button_bg = RoundedRectangle(pos=box.pos, size=box.size, radius=[10])
-
-        def update_graphics(*_):
-            shadow.pos = (box.x + 2, box.y - 2)
-            shadow.size = box.size
-            button_bg.pos = box.pos
-            button_bg.size = box.size
-
-        box.bind(pos=update_graphics, size=update_graphics)
-
-        # Create the actual button
-        button = Button(
-            text=text,
-            background_normal='',
-            background_color=get_color_from_hex(bg_color),
-            color=get_color_from_hex(self.theme['text_color']),
-            size_hint=(1, 1),
-            halign='center',
-            valign='middle',
-            font_name=font_override if font_override else 'Roboto',
-        )
-        button.text_size = (None, None)
-
-        if callback:
-            button.bind(on_press=callback)
-
-        box.add_widget(button)
-        return box
 
     def on_prev(self, instance):
         """Handles 'Previous Month' button click."""
@@ -305,21 +254,52 @@ class Calendar(GridLayout):
 
         box.bind(pos=update_border, size=update_border)
 
+        # Filter events for this specific day (including recurring)
+        all_monthly_events = [e for e in events if is_event_on_date(e, day_date)]
+
         # Limit displayed events to 3
         MAX_EVENTS = 3
-        extra_events = max(0, len(events) - MAX_EVENTS)
+        extra_events = max(0, len(all_monthly_events) - MAX_EVENTS)
 
         # Add event previews (just time + title)
-        for i, event in enumerate(sorted(events, key=lambda e: e.time)[:MAX_EVENTS]):
-            short_title = (event.title[:30] + '...') if len(event.title) > 33 else event.title
+        for i, event in enumerate(sorted(all_monthly_events, key=lambda e: e.time)[:MAX_EVENTS]):
+            short_title = (event.title[:25] + '...') if len(event.title) > 28 else event.title
             event_box = BoxLayout(
                 orientation='horizontal',
                 padding=[4, 2],
-                spacing=5,
+                spacing=8,
                 size_hint=(1, None),
-                height=25,
+                height=30,
                 pos_hint={'x': 0, 'top': 0.85 - i * 0.20},
             )
+
+            # Create tap area for each event
+            def create_event_tap(event_box_ref, event_ref):
+                def on_event_tap(instance, touch):
+                    # Inflate the clickable area by +10px in all directions
+                    inflate = 10
+                    x1 = event_box_ref.x - inflate
+                    y1 = event_box_ref.y - inflate
+                    x2 = event_box_ref.right + inflate
+                    y2 = event_box_ref.top + inflate
+
+                    if x1 <= touch.x <= x2 and y1 <= touch.y <= y2:
+                        popup = AddEventPopup(
+                            app_ref=self,
+                            theme=self.theme,
+                            event=event_ref,
+                            on_save_callback=lambda date: self.build_calendar(self.current_year, self.current_month)
+                        )
+                        popup.opacity = 0
+                        popup.open()
+                        anim = Animation(opacity=1, d=0.3, t='out_quad')
+                        anim.start(popup)
+                        return True
+                    return False
+
+                return on_event_tap
+
+            event_box.bind(on_touch_down=create_event_tap(event_box, event))
 
             # Draw background for each event
             with event_box.canvas.before:
@@ -340,13 +320,14 @@ class Calendar(GridLayout):
             icon = Image(
                 source='assets/pin.png',
                 size_hint=(None, 1),
-                width=16,
-                allow_stretch=True
+                # width=16,
+                allow_stretch=True,
+                size=(24, 24),
             )
 
             # Add the event label
             preview_label = Label(
-                text=f"[size=12][color={self.text_color}][b]{event.time}[/b] {short_title}[/color][/size]",
+                text=f"[size=14][color={self.text_color}][b]{event.time}[/b] {short_title}[/color][/size]",
                 markup=True,
                 size_hint=(1, 1),
                 halign='left',
@@ -375,15 +356,8 @@ class Calendar(GridLayout):
                 background_color=(0, 0, 0, 0),
                 color=get_color_from_hex(self.text_color),
             )
-            # with more_events_button.canvas.before:
-            #     Color(0.3, 0.3, 0.3, 0.3)
-            #     bg = RoundedRectangle(pos=more_events_button.pos, size=more_events_button.size, radius=[6])
-            # more_events_button.bind(pos=lambda *args: setattr(bg, 'pos', more_events_button.pos))
-            # more_events_button.bind(size=lambda *args: setattr(bg, 'size', more_events_button.size))
 
-            more_events_button.bind(on_release=lambda inst: show_day_popup(day_date, events, self.theme))
-            print('day_date', day_date)
-            print('events', events)
+            more_events_button.bind(on_release=lambda inst: show_day_popup(day_date, all_monthly_events, self.theme))
             box.add_widget(more_events_button)
 
         box.bind(pos=update_border, size=update_border)
@@ -435,6 +409,10 @@ class Calendar(GridLayout):
     def save_event(self, event_data):
         print('Saved Event:', event_data)
         self.show_toast(f"Event '{event_data['title']}' added!")
+
+        event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
+        self.selected_day = event_date
+        self.build_calendar(self.current_year, self.current_month)
 
     def show_toast(self, message, duration=2.5):
         """

@@ -18,10 +18,13 @@ from kivy.uix.image import Image
 from kivy.graphics import Color, Line, Rectangle
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
+from kivy.animation import Animation
 
 import datetime
 
 from storage.db_manager import get_events_for_week
+from app.utils import is_event_on_date
+from UI.event_popup import AddEventPopup
 
 
 class WeeklyView(BoxLayout):
@@ -52,12 +55,83 @@ class WeeklyView(BoxLayout):
 
     @staticmethod
     def get_current_week_dates(reference_date=None):
-        # today = datetime.date.today()
         if reference_date is None:
             reference_date = datetime.date.today()
         days_since_sunday = (reference_date.weekday() + 1) % 7
         sunday = reference_date - datetime.timedelta(days=days_since_sunday)
         return [sunday + datetime.timedelta(days=i) for i in range(7)]
+
+    def create_event_box(self, event, date):
+        # Event container
+        event_box = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            height=150,
+            padding=(5, 5),
+        )
+
+        # Conditionally include location and notes only if they're not empty
+        event_text = f"[b][color={self.theme['time_color']}]{event.time}[/color][/b]\n" + \
+                     f"[color={self.text_color}]{event.title}[/color]"
+
+        if event.location and event.location.strip():
+            event_text += f"\n[size=14][color={self.theme['location_color']}][u]Location:[/u] " \
+                          f"{event.location}[/color][/size]"
+
+        # Event content
+        event_label = Label(
+            text=event_text,
+            markup=True,
+            size_hint_y=None,
+            text_size=(None, None),
+            halign='left',
+            valign='top',
+            padding=(10, 10),
+        )
+
+        def update_label_size(label, width):
+            # Set text_size to constrain width and allow flowing text
+            label.text_size = (width - 20, None)
+
+            # After next render, texture_size will have the real required size
+            Clock.schedule_once(lambda dt: adjust_height(label), 0)
+
+        def adjust_height(label):
+            # Set height based on texture_size with padding
+            new_height = label.texture_size[1] + 20
+            label.height = new_height
+            label.parent.height = new_height + 10  # parent is event_box
+
+        # Bind width changes to update_label_size
+        event_label.bind(width=update_label_size)
+        event_box.add_widget(event_label)
+
+        def draw_bottom_border(widget, *_):
+            widget.canvas.after.clear()
+            with widget.canvas.after:
+                Color(*self.border_color)
+                Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.2)
+
+        def create_event_tap(event_ref, event_box_ref):
+            def on_event_tap(instance, touch):
+                if event_box_ref.collide_point(*touch.pos):
+                    popup = AddEventPopup(
+                        app_ref=self,
+                        theme=self.theme,
+                        event=event_ref,
+                        on_save_callback=self.update_week_with_today
+                    )
+                    popup.opacity = 0
+                    popup.open()
+                    anim = Animation(opacity=1, d=0.3, t='out_quad')
+                    anim.start(popup)
+                    return True
+                return False
+
+            return on_event_tap
+
+        event_box.bind(on_touch_down=create_event_tap(event, event_box))
+        return event_box
 
     def build_view(self):
         self.clear_widgets()
@@ -79,7 +153,6 @@ class WeeklyView(BoxLayout):
 
                 def update_v_line(inst, val):
                     v_line.points = [inst.right, inst.y, inst.right, inst.top]
-
                 day_column.bind(pos=update_v_line, size=update_v_line)
 
             # Scrollable events container
@@ -87,7 +160,7 @@ class WeeklyView(BoxLayout):
             events_layout = BoxLayout(
                 orientation='vertical',
                 size_hint_y=None,
-                spacing=0,
+                spacing=5,
                 padding=(0, 20),
             )
             events_layout.bind(minimum_height=events_layout.setter('height'))
@@ -95,69 +168,12 @@ class WeeklyView(BoxLayout):
             # Sort events chronologically
             events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
 
+            # Filter events for this specific day (including recurring)
+            all_weekly_events = [e for e in events if is_event_on_date(e, date)]
+
             # Add each event to the column
-            for event in events:
-                # Event container
-                event_box = BoxLayout(
-                    orientation='vertical',
-                    size_hint_y=None,
-                    height=150
-                )
-
-                # Create an icon image
-                icon = Image(
-                    source='assets/location.png',
-                    size_hint=(None, 1),
-                    width=16,
-                    allow_stretch=True
-                )
-
-                # Conditionally include location and notes only if they're not empty
-                event_text = f"[b][color={self.theme['time_color']}]{event.time}[/color][/b]\n" + \
-                             f"[color={self.text_color}]{event.title}[/color]"
-
-                if event.location and event.location.strip():
-                    event_text += f"\n[size=12][color={self.theme['location_color']}][u]Location:[/u] " \
-                                  f"{event.location}[/color][/size]"
-
-
-                # Event content
-                event_label = Label(
-                    text=event_text,
-                    markup=True,
-                    size_hint_y=None,
-                    text_size=(None, None),
-                    halign='left',
-                    valign='top',
-                    padding=(10, 10)
-                )
-
-                def update_label_size(label, width):
-                    # Set text_size to constrain width and allow flowing text
-                    label.text_size = (width - 20, None)
-
-                    # After next render, texture_size will have the real required size
-                    Clock.schedule_once(lambda dt: adjust_height(label), 0)
-
-                def adjust_height(label):
-                    # Set height based on texture_size with padding
-                    new_height = label.texture_size[1] + 20
-                    label.height = new_height
-                    label.parent.height = new_height + 10  # parent is event_box
-
-                # Bind width changes to update_label_size
-                event_label.bind(width=update_label_size)
-
-                event_box.add_widget(event_label)
-
-                def draw_bottom_border(widget, *_):
-                    widget.canvas.after.clear()
-                    with widget.canvas.after:
-                        Color(*self.border_color)
-                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.2)
-
-                event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
-
+            for event in all_weekly_events:
+                event_box = self.create_event_box(event, date)
                 events_layout.add_widget(event_box)
 
             scroll.add_widget(events_layout)
@@ -179,6 +195,11 @@ class WeeklyView(BoxLayout):
                     )
 
         self.bind(pos=update_all_borders, size=update_all_borders)
+
+    def update_week_with_today(self, *_):
+        """Force weekly view to rebuild around today's date"""
+        today = datetime.date.today()
+        self.update_week(today)
 
     def update_week(self, reference_date):
         """Rebuilds the weekly view starting from the given reference date."""
@@ -202,7 +223,14 @@ class WeeklyView(BoxLayout):
                 day_column.bind(pos=update_v_line, size=update_v_line)
 
             # Scrollable events container
-            scroll = ScrollView(size_hint=(1, 1))
+            scroll = ScrollView(
+                size_hint=(1, 1),
+                bar_width=8,
+                scroll_type=['bars', 'content'],
+                bar_color=get_color_from_hex(self.theme.get('scrollbar_color', '#888888')),
+                bar_inactive_color=get_color_from_hex(self.theme.get('scrollbar_inactive_color', '#555555')),
+                effect_cls='ScrollEffect',
+            )
             events_layout = BoxLayout(
                 orientation='vertical',
                 size_hint_y=None,
@@ -213,62 +241,11 @@ class WeeklyView(BoxLayout):
 
             # Sort events chronologically
             events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
+            all_weekly_events = [e for e in events if is_event_on_date(e, date)]
 
             # Add each event to the column
-            for event in events:
-                # Event container
-                event_box = BoxLayout(
-                    orientation='vertical',
-                    size_hint_y=None,
-                    height=150
-                )
-
-                # Conditionally include location and notes only if they're not empty
-                event_text = f"[b][color={self.text_color}]{event.time}[/color][/b]\n" + \
-                             f"[color={self.text_color}]{event.title}[/color]"
-
-                if event.location and event.location.strip():
-                    event_text += f"\n[size=12][color={self.text_color}]Location: {event.location}[/color][/size]"
-
-                if event.notes and event.notes.strip():
-                    event_text += f"\n[size=12][color={self.text_color}]Notes: {event.notes}[/color][/size]"
-                # Event content
-                event_label = Label(
-                    text=event_text,
-                    markup=True,
-                    size_hint_y=None,
-                    text_size=(None, None),
-                    halign='left',
-                    valign='top',
-                    padding=(10, 10)
-                )
-
-                def update_label_size(label, width):
-                    # Set text_size to constrain width and allow flowing text
-                    label.text_size = (width - 20, None)
-
-                    # After next render, texture_size will have the real required size
-                    Clock.schedule_once(lambda dt: adjust_height(label), 0)
-
-                def adjust_height(label):
-                    # Set height based on texture_size with padding
-                    new_height = label.texture_size[1] + 20
-                    label.height = new_height
-                    label.parent.height = new_height + 10  # parent is event_box
-
-                # Bind width changes to update_label_size
-                event_label.bind(width=update_label_size)
-
-                event_box.add_widget(event_label)
-
-                def draw_bottom_border(widget, *_):
-                    widget.canvas.after.clear()
-                    with widget.canvas.after:
-                        Color(*self.border_color)
-                        Line(points=[widget.x, widget.y, widget.right, widget.y], width=1.2)
-
-                event_box.bind(pos=draw_bottom_border, size=draw_bottom_border)
-
+            for event in all_weekly_events:
+                event_box = self.create_event_box(event, date)
                 events_layout.add_widget(event_box)
 
             scroll.add_widget(events_layout)

@@ -28,6 +28,8 @@ class ThemeManager:
                 'title_color': '#222222',
                 'location_color': '#555555',
                 'notes_color': '#777777',
+                "scrollbar_color": "#66d9ed",
+                "scrollbar_inactive_color": "#cccccc",
             },
             'Dark': {
                 'bg_color': '#1A1A1A',
@@ -43,6 +45,8 @@ class ThemeManager:
                 'title_color': '#FFFFFF',
                 'location_color': '#AAAAAA',
                 'notes_color': '#888888',
+                "scrollbar_color": "#A6F6FF",
+                "scrollbar_inactive_color": "#444444",
             },
             'Blueberry': {
                 'bg_color': '#334080',
@@ -58,6 +62,8 @@ class ThemeManager:
                 'title_color': '#EEEEEE',
                 'location_color': '#AAAAAA',
                 'notes_color': '#888888',
+                "scrollbar_color": "#9EDDFF",
+                "scrollbar_inactive_color": "#333344",
             },
             'Sunset': {
                 'bg_color': '#FFDAB3',
@@ -73,6 +79,8 @@ class ThemeManager:
                 'title_color': '#222222',
                 'location_color': '#5C3B1E',
                 'notes_color': '#7A5C4F',
+                "scrollbar_color": "#FFB347",
+                "scrollbar_inactive_color": "#704214",
             }
         }
 

@@ -139,3 +139,50 @@ def get_weather(lat, lon):
     except Exception as e:
         print("Failed to get weather:", e)
         return None, None
+
+
+def is_event_on_date(event, target_date):
+    """
+    Check if a given event should be shown on current_date based on its recurrence rule
+    :param event: an Event object with .date and .recurrence
+    :param target_date: datetime.date
+    :return: bool
+    """
+    try:
+        # Parse the event's date
+        event_date = dt.datetime.strptime(event.date, '%Y-%m-%d').date()
+        recurrence = event.recurrence.lower()
+        recurrence_end = (
+            dt.datetime.strptime(event.recurrence_end, '%Y-%m-%d').date()
+            if event.recurrence_end else None
+        )
+
+        # If this date is past the recurrence_end, don't show it
+        if recurrence_end and target_date > recurrence_end:
+            return False
+
+        if recurrence == 'none':
+            return event_date == target_date
+
+        elif recurrence == 'daily':
+            return target_date >= event_date
+
+        elif recurrence == 'weekly':
+            # Check if the weekday matches and the target is after the event date
+            return target_date >= event_date and target_date.weekday() == event_date.weekday()
+
+        elif recurrence == 'monthly':
+            return target_date.day == event_date.day and target_date >= event_date
+
+        elif recurrence == 'yearly':
+            return (
+                    target_date.month == event_date.month and
+                    target_date.day == event_date.day and
+                    target_date >= event_date
+            )
+
+        return False  # fallback
+    except Exception as e:
+        print(f"⚠️ Error checking recurrence: {e}")
+        return False
+
