@@ -1,3 +1,9 @@
+"""
+settings_popup.py
+
+Defines the themed settings popup for toggling auto light/dark mode, setting custom
+theme preferences, and adjusting light/dark start times in the Family Calendar app.
+"""
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -6,7 +12,9 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.switch import Switch
 from kivy.graphics import Color, RoundedRectangle
 from kivy.utils import get_color_from_hex
-from app.utils import create_themed_button
+
+from app.ui_utils import create_themed_button
+from UI.components.keyboard import VirtualKeyboard
 
 
 def create_settings_popup(theme_manager, apply_callback, theme):
@@ -66,7 +74,8 @@ def create_settings_popup(theme_manager, apply_callback, theme):
     settings_popup_layout.add_widget(light_input)
 
     # Dark Mode Start
-    settings_popup_layout.add_widget(Label(text='Dark Mode Start (HH:MM):', size_hint_y=None, height=30, color=text_color))
+    settings_popup_layout.add_widget(Label(text='Dark Mode Start (HH:MM):', size_hint_y=None, height=30,
+                                           color=text_color))
     dark_input = TextInput(
         text=theme_manager.settings['dark_start'],
         hint_text='HH:MM',
@@ -76,20 +85,34 @@ def create_settings_popup(theme_manager, apply_callback, theme):
     )
     settings_popup_layout.add_widget(dark_input)
 
+    vk = VirtualKeyboard(size_hint_y=None, height=200)
+    vk.register_inputs(light_input, dark_input)
+    settings_popup_layout.add_widget(vk)
+
     popup = Popup(
         title='Settings',
         title_color=get_color_from_hex(theme['text_color']),
         title_align='center',
         content=settings_popup_layout,
-        size_hint=(0.5, 0.5),
+        size_hint=(0.5, 0.6),
         background='',
         background_color=get_color_from_hex(theme['bg_color']),
+        auto_dismiss=False,
         )
+
+    def block_extra_touches(instance, touch):
+        if instance.collide_point(*touch.pos):
+            print(f"[DEBUG] Touch inside popup at {touch.pos}")
+            return False  # Let Kivy continue handling the event
+        return False
+
+    popup.bind(on_touch_down=block_extra_touches)
 
     def toggle_spinner_state(*_):
         theme_spinner.disabled = auto_mode_switch.active
 
     def on_save_settings(instance):
+        # Update theme settings and apply immediately
         theme_manager.toggle_auto_mode(auto_mode_switch.active)
         theme_manager.set_custom_theme(theme_spinner.text)
         theme_manager.set_dark_light_times(light_input.text, dark_input.text)

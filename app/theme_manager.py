@@ -1,3 +1,16 @@
+"""
+Theme Manager Module
+--------------------
+Handles theme selection and management for the Family Calendar application.
+
+Features:
+- Predefined color themes with light/dark modes and seasonal variants.
+- Automatic switching between themes based on time.
+- Persistent user settings stored in JSON.
+- Manual override and custom time ranges for light/dark themes.
+
+Author: Attila Bordan
+"""
 import datetime
 import json
 import os
@@ -6,13 +19,13 @@ import os
 class ThemeManager:
     """
     Manages application themes, including auto-switching logic,
-    user overrides, and persistent performances.
+    user overrides, and persistent preferences.
     """
     SETTINGS_FILE = 'theme_settings.json'
 
     def __init__(self):
 
-        # Define available themes
+        # Predefined theme styles with color settings for UI elements
         self.themes = {
             'Light': {
                 'bg_color': '#FFEFD5',
@@ -84,13 +97,13 @@ class ThemeManager:
             }
         }
 
-        # Default user settings
+        # Default settings used if no config file exists
         self.settings = {
             'auto_mode': True,
             'dark_start': '20:00',
             'light_start': '07:00',
-            'preferred_theme': 'light',  # used if auto_mode is false
-            'active_theme': 'light'  # updated dynamically
+            'preferred_theme': 'Light',  # used if auto_mode is false
+            'active_theme': 'Light'  # gets dynamically updated
         }
 
         # Load saved settings if present
@@ -100,7 +113,7 @@ class ThemeManager:
         self.update_theme()
 
     def load_settings(self):
-        """Loads user settings from disk if file exists."""
+        """Loads user theme preferences from a JSON file if available."""
         if os.path.exists(self.SETTINGS_FILE):
             try:
                 with open(self.SETTINGS_FILE, 'r') as f:
@@ -109,7 +122,7 @@ class ThemeManager:
                 print(f'Error loading theme settings: {e}')
 
     def save_settings(self):
-        """"Saves user settings to disk."""
+        """Saves user theme preferences to a JSON file."""
         try:
             with open(self.SETTINGS_FILE, 'w') as f:
                 json.dump(self.settings, f, indent=4)
@@ -117,11 +130,20 @@ class ThemeManager:
             print(f'Error saving theme settings: {e}')
 
     def get_theme(self):
-        """Returns the currently active theme dictionary."""
+        """
+        Returns the currently active theme's color dictionary.
+
+        :return: dict of color values for UI elements.
+        """
         return self.themes[self.settings['active_theme']]
 
     def update_theme(self):
-        """Determines and sets the appropriate theme."""
+        """
+        Sets the active theme based on auto mode or preferred user selection.
+
+        In auto mode, the app switches between light and dark themes
+        based on the current system time and user-defined thresholds.
+        """
         if self.settings['auto_mode']:
             now = datetime.datetime.now().time()
             dark_start = datetime.datetime.strptime(self.settings['dark_start'], '%H:%M').time()
@@ -135,20 +157,33 @@ class ThemeManager:
             self.settings['active_theme'] = self.settings['preferred_theme']
 
     def toggle_auto_mode(self, enabled: bool):
-        """Enable or disable auto dark/light mode."""
+        """
+        Enables or disables automatic light/dark mode switching.
+
+        :param enabled: True to enable auto mode, False to disable.
+        """
         self.settings['auto_mode'] = enabled
         self.update_theme()
         self.save_settings()
 
     def set_custom_theme(self, theme_name: str):
-        """Sets a custom theme by name."""
+        """
+         Sets a user-selected theme manually.
+
+        :param theme_name: Name of the theme from the available themes.
+        """
         if theme_name in self.themes:
             self.settings['preferred_theme'] = theme_name
             self.update_theme()
             self.save_settings()
 
     def set_dark_light_times(self, light_time: str, dark_time: str):
-        """Sets custom times for light and dark mode switching."""
+        """
+        Configures custom switching times for light and dark modes.
+
+        :param light_time: Start time for light mode (HH:MM format).
+        :param dark_time: Start time for dark mode (HH:MM format).
+        """
         self.settings['light_start'] = light_time
         self.settings['dark_start'] = dark_time
         self.update_theme()

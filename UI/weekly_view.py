@@ -14,7 +14,6 @@ This gives 7 tall columns, one per day, each with 24 vertical rows.
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
-from kivy.uix.image import Image
 from kivy.graphics import Color, Line, Rectangle
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
@@ -23,11 +22,17 @@ from kivy.animation import Animation
 import datetime
 
 from storage.db_manager import get_events_for_week
-from app.utils import is_event_on_date
+from app.api_utils import is_event_on_date
 from UI.event_popup import AddEventPopup
 
 
 class WeeklyView(BoxLayout):
+    """
+    Displays a scrollable weekly calendar view with seven day-columns.
+    Each column lists events in vertical order with theme-aware styling.
+
+    Allows editing events via popups and supports recurring event rendering.
+    """
     def __init__(self, theme, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
@@ -166,7 +171,10 @@ class WeeklyView(BoxLayout):
             events_layout.bind(minimum_height=events_layout.setter('height'))
 
             # Sort events chronologically
-            events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
+            events = (event_dict.get(str(date), []))
+
+            if not events:
+                events = []
 
             # Filter events for this specific day (including recurring)
             all_weekly_events = [e for e in events if is_event_on_date(e, date)]

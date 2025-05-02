@@ -1,9 +1,17 @@
 """
 calendar_view.py
 
-Main Calendar view component with dynamic theme support and settings popup.
-"""
+The main UI component for the Family Calendar app.
 
+Includes:
+- Monthly and Weekly calendar views
+- Themed day cells and event previews
+- Navigation, settings, toast messages, and event popups
+- Automatic theme switching (light/dark) based on time
+- Support for recurring events and limited overflow handling
+
+Author: Attila Bordan
+"""
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -18,8 +26,10 @@ from kivy.animation import Animation
 
 import calendar
 import datetime
+import time
 
-from app.utils import is_dark_mode, is_event_on_date
+from app.utils import is_dark_mode
+from app.api_utils import is_event_on_date
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
 from UI.settings_popup import create_settings_popup
@@ -34,12 +44,19 @@ from storage.db_manager import get_events_for_month
 
 class Calendar(GridLayout):
     """
-    Main calendar component that includes:
-    - Current time, date, and day bar
-    - Month navigation buttons
-    - Weekday headers with background colors
-    - Dynamic calendar grid display for the selected month
-    - Settings popup
+    The Calendar component is the central layout for the Family Calendar UI.
+
+    It supports:
+    - Toggling between monthly and weekly views
+    - Themed rendering based on user settings or time of day
+    - Adding, updating, and displaying recurring events
+    - Dynamic toast messages and popups
+
+    Extends:
+        GridLayout (with 1 column and 5 rows)
+
+    Usage:
+        Used as the root layout widget in the main app window.
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -123,19 +140,15 @@ class Calendar(GridLayout):
 
     def on_prev(self, instance):
         """Handles 'Previous Month' button click."""
+        print(f"[DEBUG] Previous pressed at {time.time()}")
         if self.is_weekly_view:
             # Move to previous week
-            # current_date = datetime.date(self.current_year, self.current_month, 1)
-            # prev_week = current_date - datetime.timedelta(days=7)
             self.current_week_date -= datetime.timedelta(days=7)
             self.current_year = self.current_week_date.year
             self.current_month = self.current_week_date.month
-            # self.current_year = prev_week.year
-            # self.current_month = prev_week.month
 
             # Update display and rebuild weekly view
             self.update_current_date_display()
-            # self.weekly_view.update_week(prev_week)
             self.weekly_view.update_week(self.current_week_date)
             week_dates = WeeklyView.get_current_week_dates(self.current_week_date)  # or next_week
             self.weekday_header.update_weekly_dates(week_dates)
@@ -151,10 +164,9 @@ class Calendar(GridLayout):
 
     def on_next(self, instance):
         """Handles 'Next Month' button click."""
+        print(f"[DEBUG] Next pressed at {time.time()}")
         if self.is_weekly_view:
             # Move to next week
-            # current_date = datetime.date(self.current_year, self.current_month, 1)
-            # next_week = current_date + datetime.timedelta(days=7)
             self.current_week_date += datetime.timedelta(days=7)
             self.current_year = self.current_week_date.year
             self.current_month = self.current_week_date.month
@@ -443,8 +455,6 @@ class Calendar(GridLayout):
             toast_bg.size = toast.size
 
         toast.bind(pos=update_rect, size=update_rect)
-
-        # toast.bind(size=lambda instance, value: setattr(instance, 'text_size', value))
 
         if self.float_root:
             self.float_root.add_widget(toast)

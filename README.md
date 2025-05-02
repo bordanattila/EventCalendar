@@ -16,7 +16,7 @@ A lightweight, standalone scheduling board built with **Python**, **Kivy**, and 
 
 ## 📸 Screenshot
 
-![Montly View](./assets/monthly_view.png)  
+![Monthly View](./assets/monthly_view.png)  
 > _Full-screen calendar on a Raspberry Pi touchscreen with highlighted dates and event popups._
 
 ---
@@ -33,17 +33,16 @@ A lightweight, standalone scheduling board built with **Python**, **Kivy**, and 
 ---
 
 ## 🏗️ File Structure
-```commandline
+```
 EventCalendar/
 ├── main.py                # Entry point
-├── /app/                  # Application controller & logic
-├── /ui/                   # UI components (calendar, popups)
-├── /models/               # SQLAlchemy models
+├── /app/                  # Theme manager, utils, API logic
+├── /ui/                   # Calendar view and popup components
 ├── /storage/              # DB connection and queries
 ├── /assets/               # Images, fonts, icons
 ├── README.md
 ├── requirements.txt
-└── schedule.db            # SQLite DB (auto-generated)
+└── calendar.db            # SQLite DB (auto-generated)
 ```
 
 ---
@@ -61,7 +60,20 @@ EventCalendar/
 ```commandline
 git clone https://github.com/bordanattila/EventCalendar.git
 cd EventCalendar
+```
+Create & activate a virtual environment
+```commandline
+python3 -m venv .venv
+source .venv/bin/activate
+
+```
+Install dependencies
+```commandline
+pip install --upgrade pip
 pip install -r requirements.txt
+```
+Run the app
+```commandline
 python main.py
 ```
 
@@ -76,12 +88,14 @@ Add:
 ```
 
 ---
-💡 Future Plans
-✅ Custom themes (dark mode, accessibility colors)
+🌟 Roadmap
+✅ Themed UI (light, dark, custom)
 
-🔄 Google Calendar sync
+✅ Weekly calendar view
 
-🔔 Notifications & alarms
+🔄 Google Calendar sync (OAuth)
+
+🔔 Event reminders / notifications
 
 🧠 Natural language input (“Lunch with Sarah at 2PM”)
 

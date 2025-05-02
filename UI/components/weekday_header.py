@@ -1,3 +1,15 @@
+"""
+weekday_header.py
+
+Displays the header row for the calendar, showing abbreviated weekday names.
+
+Supports:
+- Color-coded day labels in monthly view
+- Dynamic date labeling in weekly view (e.g., "Sun 20")
+- Theme-aware background and text color adjustment
+
+Author: Attila Bordan
+"""
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -6,6 +18,16 @@ from kivy.utils import get_color_from_hex
 
 
 class WeekdayHeader(GridLayout):
+    """
+    A themed weekday header row with optional dynamic dates.
+
+    Args (passed via kwargs):
+        theme (dict): The active theme dictionary.
+        theme_manager (ThemeManager): Used to check auto-mode settings.
+        dark_mode (bool): Whether dark mode is active.
+        is_weekly_view (bool): Toggles between monthly and weekly label style.
+        week_dates (list): List of 7 datetime.date objects if in weekly view.
+    """
     def __init__(self, **kwargs):
         theme = kwargs.pop('theme')
         theme_manager = kwargs.pop('theme_manager')
@@ -28,6 +50,12 @@ class WeekdayHeader(GridLayout):
         self.build_header()
 
     def build_header(self):
+        """
+        Builds the weekday header row.
+
+        In weekly view, appends the day of the month to each label.
+        In monthly view, only day names are shown.
+        """
         days_with_colors = [
             ('Sun', '#FFB347'),  # Soft Amber – warm, energetic, and bright
             ('Mon', '#6ECEDA'),  # Aqua Mist – calm, clean, and refreshing
@@ -51,15 +79,27 @@ class WeekdayHeader(GridLayout):
                 self._create_header_box(day_name, bg_color_light)
 
     def _create_header_box(self, day_text, bg_color_light):
-        """Helper method to create a single header box"""
+        """
+        Creates a single day header box with optional background override
+        depending on dark mode and auto-mode.
+
+        Args:
+            day_text (str): Label text (e.g., 'Sun 14').
+            bg_color_light (str): Default background hex color for that day.
+        """
         box = BoxLayout()
         bg_color = get_color_from_hex(bg_color_light)
+
+        # Use theme background in auto-dark mode to maintain consistency
         if self.theme_manager.settings.get('auto_mode') and self.dark_mode:
             bg_color = self.theme['bg_color']
+
+        # Draw background rectangle
         with box.canvas.before:
             Color(*bg_color)
             rect = RoundedRectangle(pos=box.pos, size=box.size, radius=[0])
 
+        # Keep background in sync with layout size
         def make_updater(widget, rect):
             def update(*_):
                 rect.pos = widget.pos
@@ -68,6 +108,8 @@ class WeekdayHeader(GridLayout):
             return update
 
         box.bind(pos=make_updater(box, rect), size=make_updater(box, rect))
+
+        # Create styled label
         label = Label(
             text=f"[b][color={bg_color_light if self.dark_mode else self.theme['text_color']}]{day_text}[/color][/b]",
             markup=True
@@ -76,7 +118,12 @@ class WeekdayHeader(GridLayout):
         self.add_widget(box)
 
     def update_weekly_dates(self, new_week_dates):
-        """Update the header with a new list of dates for weekly view."""
+        """
+        Updates the labels with a new list of datetime.date objects for weekly view.
+
+        Args:
+            new_week_dates (list): List of 7 datetime.date objects.
+        """
         self.week_dates = new_week_dates
         self.clear_widgets()
         self.build_header()

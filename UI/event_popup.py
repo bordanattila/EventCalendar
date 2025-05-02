@@ -8,9 +8,9 @@ Optional fields: location, notes.
 
 from kivy.uix.popup import Popup
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.uix.spinner import Spinner
+from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.utils import get_color_from_hex
 from kivy.graphics import Color as Colour, RoundedRectangle as RR, Rectangle
@@ -20,25 +20,37 @@ from kivy.clock import Clock
 import datetime
 
 from storage.db_manager import save_event_to_db, stop_recurring_event, update_event_in_db
-from app.utils import create_themed_button
+from app.ui_utils import create_themed_button
+from UI.components.keyboard import VirtualKeyboard
 
 
 class AddEventPopup(Popup):
+    """
+    Popup form for adding or editing a calendar event.
+
+    Supports:
+    - Required fields: title, date, time
+    - Optional fields: location, notes
+    - Recurrence via dropdown: daily, weekly, monthly, yearly
+    - Editing an existing event with pre-filled values
+    - Toast-style inline validation feedback
+    - Theme-aware background, input, and button styling
+    """
     def __init__(self, app_ref, on_save_callback=None, theme=None, event=None, **kwargs):
         self.app_ref = kwargs.pop('app_ref', None)
         self.selected_date = kwargs.pop('initial_date', datetime.date.today())
-        super().__init__(**kwargs)
+        super().__init__(auto_dismiss=False, **kwargs)
         self.app_ref = app_ref
         self.theme = theme or {}
         self.event = event
         self.title = 'Edit Event' if self.event else 'Add Event'
         self.title_color = get_color_from_hex(theme['text_color'])
         self.title_align = 'center'
-        self.size_hint = (0.5, 0.5)
+        self.size_hint = (0.5, 0.7)
         self.on_save_callback = on_save_callback
         self.background = ''
         self.background_color = get_color_from_hex(self.theme.get('bg_color', '#FFFFFF'))
-        self.bg_color = self.theme.get('bg_color', (1, 1, 1, 1))
+        self.bg_color = self.theme.get('bg_color', '#FFFFFF')
 
         self.date_label = Label(
             text=str(self.selected_date),
@@ -49,7 +61,7 @@ class AddEventPopup(Popup):
 
         # Styled Border + Rounded Background
         with self.canvas.before:
-            Colour(*self.theme.get('bg_color', (1, 1, 1, 1)))
+            Colour(*self.theme.get('bg_color', '#FFFFFF'))
             self._popup_bg = RR(
                 pos=self.pos,
                 size=self.size,
@@ -79,7 +91,7 @@ class AddEventPopup(Popup):
             ))
         self.title_input = TextInput(
             multiline=False,
-            background_color=self.theme.get('input_bg_color', (1, 1, 1, 1)),
+            background_color=self.theme.get('input_bg_color', '#FFFFFF'),
             foreground_color=get_color_from_hex(self.theme.get('text_color', '#000000')),
         )
         layout.add_widget(self.title_input)
@@ -102,7 +114,7 @@ class AddEventPopup(Popup):
         ))
         self.time_input = TextInput(
             multiline=False,
-            background_color=self.theme.get('input_bg_color', (1, 1, 1, 1)),
+            background_color=self.theme.get('input_bg_color', '#FFFFFF'),
             foreground_color=get_color_from_hex(self.theme.get('text_color', '#000000')),
         )
         layout.add_widget(self.time_input)
@@ -116,7 +128,7 @@ class AddEventPopup(Popup):
         ))
         self.location_input = TextInput(
             multiline=False,
-            background_color=self.theme.get('input_bg_color', (1, 1, 1, 1)),
+            background_color=self.theme.get('input_bg_color', '#FFFFFF'),
             foreground_color=get_color_from_hex(self.theme.get('text_color', '#000000')),
         )
         layout.add_widget(self.location_input)
@@ -129,9 +141,10 @@ class AddEventPopup(Popup):
         ))
         self.notes_input = TextInput(
             multiline=False,
-            background_color=self.theme.get('input_bg_color', (1, 1, 1, 1)),
+            background_color=self.theme.get('input_bg_color', '#FFFFFF'),
             foreground_color=get_color_from_hex(self.theme.get('text_color', '#000000')),
         )
+        # self.notes_input.bind(focus=lambda instance, value: show_virtual_keyboard() if value else None)
         layout.add_widget(self.notes_input)
 
         # Spacer
@@ -175,8 +188,22 @@ class AddEventPopup(Popup):
         button_box.add_widget(self.cancel_btn)
         button_box.add_widget(self.save_btn)
 
+        self.keyboard = VirtualKeyboard(size_hint_y=None, height=200)
+        self.keyboard.register_inputs(
+            self.title_input,
+            self.time_input,
+            self.location_input,
+            self.notes_input
+        )
+
+        # # Set natural focus order
+        # self.title_input.next = self.time_input
+        # self.time_input.next = self.location_input
+        # self.location_input.next = self.notes_input
+
         container = BoxLayout(orientation='vertical')
         container.add_widget(layout)
+        container.add_widget(self.keyboard)
         container.add_widget(button_box)
 
         self.content = container
@@ -190,9 +217,17 @@ class AddEventPopup(Popup):
             self.recurrence_spinner.text = self.event.recurrence
 
     def set_selected_date(self, date_obj):
+        """Sets the popup's displayed date label to the given date."""
         self.date_label.text = str(date_obj)
 
     def save_event(self, *_):
+        """
+        Validates and saves the event to the database.
+
+        - If required fields are missing, shows a toast message inside the popup.
+        - If editing, updates the event; otherwise, creates a new one.
+        - Calls the parent view’s callback and refresh methods if available.
+        """
         title = self.title_input.text.strip()
         date = self.date_label.text.strip()
         time = self.time_input.text.strip()
@@ -201,7 +236,7 @@ class AddEventPopup(Popup):
         recurrence = self.recurrence_spinner.text.strip()
 
         if not title or not date or not time:
-            # Create and show a toast within the popup
+            # Show inline toast if any required field is missing
             self.show_popup_toast('Please fill in required fields.')
             return
 
@@ -234,6 +269,7 @@ class AddEventPopup(Popup):
             self.app_ref.build_view(self.app_ref.current_year, self.app_ref.current_month)
 
     def _update_popup_border(self, *_):
+        """Keeps the styled popup border in sync with the popup's size and position."""
         self._popup_border.pos = self.pos
         self._popup_border.size = self.size
         self._popup_bg.pos = self.pos
@@ -243,7 +279,6 @@ class AddEventPopup(Popup):
 
     def show_popup_toast(self, message, duration=2.5):
         """Shows a toast message within the popup."""
-
         # Create toast label
         toast = Label(
             text=message,
@@ -288,6 +323,10 @@ class AddEventPopup(Popup):
         Clock.schedule_once(remove_toast, duration)
 
     def handle_stop_recurrence(self, *_):
+        """
+        Stops recurrence for an existing event by updating the database,
+        then dismisses the popup and refreshes the calendar UI.
+        """
         if self.event and stop_recurring_event(self.event.id):
             self.show_popup_toast("Recurrence stopped.")
             self.dismiss()
