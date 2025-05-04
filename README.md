@@ -16,7 +16,8 @@ A lightweight, standalone scheduling board built with **Python**, **Kivy**, and 
 
 ## 📸 Screenshot
 
-![Monthly View](./assets/monthly_view.png)  
+![Monthly View](./assets/monthly_view.png)
+![Weekly View](./assets/weekly_view.png)
 > _Full-screen calendar on a Raspberry Pi touchscreen with highlighted dates and event popups._
 
 ---

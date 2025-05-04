@@ -303,6 +303,7 @@ class Calendar(GridLayout):
                             on_save_callback=lambda date: self.build_calendar(self.current_year, self.current_month)
                         )
                         popup.opacity = 0
+                        popup.bind(on_dismiss=popup.on_dismiss)
                         popup.open()
                         anim = Animation(opacity=1, d=0.3, t='out_quad')
                         anim.start(popup)
@@ -416,6 +417,7 @@ class Calendar(GridLayout):
             app_ref=self,
             initial_date=self.selected_day,
         )
+        popup.bind(on_dismiss=popup.on_dismiss)
         popup.open()
 
     def save_event(self, event_data):

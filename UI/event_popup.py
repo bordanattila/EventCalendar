@@ -19,7 +19,7 @@ from kivy.clock import Clock
 
 import datetime
 
-from storage.db_manager import save_event_to_db, stop_recurring_event, update_event_in_db
+from storage.db_manager import save_event_to_db, stop_recurring_event, update_event_in_db, delete_event
 from app.ui_utils import create_themed_button
 from UI.components.keyboard import VirtualKeyboard
 
@@ -182,6 +182,15 @@ class AddEventPopup(Popup):
             )
             button_box.add_widget(self.stop_button)
 
+        # Only show 'Delete' if editing an existing event
+        if self.event and self.event.title != "none":
+            self.delete_button = create_themed_button(
+                "Delete",
+                self.theme,
+                on_release=self.handle_delete_event
+            )
+            button_box.add_widget(self.delete_button)
+
         self.save_btn = create_themed_button('Save', self.theme, on_release=self.save_event)
         self.cancel_btn = create_themed_button('Cancel', self.theme, on_release=self.dismiss)
 
@@ -215,6 +224,9 @@ class AddEventPopup(Popup):
             self.location_input.text = self.event.location
             self.notes_input.text = self.event.notes
             self.recurrence_spinner.text = self.event.recurrence
+
+    def __del__(self):
+        print("🧹 AddEventPopup destroyed")
 
     def set_selected_date(self, date_obj):
         """Sets the popup's displayed date label to the given date."""
@@ -343,3 +355,33 @@ class AddEventPopup(Popup):
             Clock.schedule_once(refresh_ui, 0.3)
         else:
             self.show_popup_toast("Unable to stop recurrence.")
+
+    def handle_delete_event(self, *_):
+        """
+        Delete existing events
+        :param _:
+        :return:
+        """
+        if self.event and delete_event(self.event.id):
+            self.show_popup_toast("Evnet deleted.")
+            self.dismiss()
+
+            # Delay the calendar refresh to occur AFTER the popup closes
+            def refresh_ui(dt):
+                if hasattr(self.app_ref, "rebuild_ui"):
+                    float_root = getattr(self.app_ref, "float_root", None)
+                    if float_root:
+                        self.app_ref.rebuild_ui(float_root)
+                    else:
+                        print("⚠️ Warning: float_root not found for rebuild.")
+
+            Clock.schedule_once(refresh_ui, 0.3)
+        else:
+            self.show_popup_toast("Unable to delete event.")
+
+    def on_dismiss(self):
+        if hasattr(self, "keyboard") and self.keyboard:
+            if self.keyboard.parent:
+                self.keyboard.parent.remove_widget(self.keyboard)
+            self.keyboard = None
+        self.content = None

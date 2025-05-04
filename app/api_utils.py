@@ -59,9 +59,10 @@ def get_weather(lat, lon):
         )
         response = requests.get(url)
         data = response.json()
-        temp = round(data["main"]["temp"])
+        celsius = round(data["main"]["temp"])
+        fahrenheit = round((celsius * (9/5)) + 32)
         icon = data["weather"][0]["icon"]
-        return temp, icon
+        return celsius, fahrenheit, icon
     except Exception as e:
         print("Failed to get weather:", e)
         return None, None

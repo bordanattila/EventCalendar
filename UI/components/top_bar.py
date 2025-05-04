@@ -90,9 +90,9 @@ class TopBar(BoxLayout):
         """Fetches weather info using location and updates label/icon."""
         lat, lon, city = get_location()
         if lat and lon:
-            temp, icon = get_weather(lat, lon)
-            if temp is not None and icon:
-                self.weather_label.text = f"[b][color={self.text_color}]{temp}°C[/color][/b]"
+            celsius, fahrenheit, icon = get_weather(lat, lon)
+            if celsius is not None and icon:
+                self.weather_label.text = f"[b][color={self.text_color}]{celsius}°C / {fahrenheit}°F[/color][/b]"
                 self.weather_icon.source = f"http://openweathermap.org/img/wn/{icon}.png"
             else:
                 self.weather_label.text = ""

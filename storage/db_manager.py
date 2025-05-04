@@ -13,7 +13,7 @@ Author: Attila Bordan
 import calendar
 import datetime
 
-from sqlalchemy import String, create_engine
+from sqlalchemy import String, create_engine, delete
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from app.api_utils import is_event_on_date
 
@@ -187,3 +187,22 @@ def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
             event.notes = updated_data['notes']
             event.recurrence = updated_data['recurrence']
             session.commit()
+
+
+def delete_event(event_id: int) -> bool:
+    """
+    Removes selected event from the database.
+
+    Args:
+        event_id (int): ID of the event to stop recurring.
+
+    Returns:
+        bool: True if the deletion succeeded, False otherwise.
+    """
+    with SessionLocal() as session:
+        db_event = session.query(Event).get(event_id)
+        if db_event:
+            session.delete(db_event)
+            session.commit()
+            return True
+    return False
