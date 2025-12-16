@@ -15,9 +15,10 @@ class VirtualKeyboard(BoxLayout):
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
             ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
             ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-            ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
-            [':', '!', '.', '?', '@', '/', '"'],
-            ['Space', 'Backspace', 'Clear', 'Caps', 'Done']
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm' , 'Clear'],
+            [':', '!', '.', '?', '@', '/', '"', 'Caps'],
+            ['Space', 'Backspace'], 
+            ['Done']
         ]
         self.caps = False
         self.build_keys(self.caps)
@@ -66,3 +67,30 @@ class VirtualKeyboard(BoxLayout):
     def on_focus(self, instance, value):
         if value:
             Clock.schedule_once(lambda dt: setattr(self, 'active_input', instance), 0)
+    
+    def cleanup(self):
+        """
+        Properly cleans up the keyboard widget and unbinds all event handlers.
+        Prevents memory leaks by removing references and bindings.
+        """
+        # Clear all references
+        self.active_input = None
+        self.key_rows = []
+        
+        # Unbind all TextInput focus handlers
+        for widget in self.walk():
+            if hasattr(widget, 'text'):
+                try:
+                    widget.unbind(on_press=self.handle_key)
+                except:
+                    pass
+        
+        # Clear all widgets
+        self.clear_widgets()
+    
+    def __del__(self):
+        """Destructor ensures cleanup even if not called explicitly."""
+        try:
+            self.cleanup()
+        except:
+            pass

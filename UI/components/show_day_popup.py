@@ -14,6 +14,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.graphics import Color, RoundedRectangle
 from kivy.utils import get_color_from_hex
 from kivy.clock import Clock
+from kivy.animation import Animation
 
 
 def show_day_popup(day_date, events, theme):
@@ -87,7 +88,39 @@ def show_day_popup(day_date, events, theme):
         background='',
         background_color=get_color_from_hex(theme['bg_color']),
     )
+    
+    # Store reference to auto_close for cleanup
+    auto_close_scheduled = None
+    
+    # Cleanup function for the popup
+    def cleanup_popup():
+        """Properly cleans up popup resources."""
+        try:
+            # Cancel any pending clock events
+            if auto_close_scheduled:
+                Clock.unschedule(auto_close_scheduled)
+            # Cancel any animations
+            Animation.cancel_all(popup)
+            # Clear canvas
+            if hasattr(day_popup_layout, 'canvas'):
+                day_popup_layout.canvas.before.clear()
+            # Unbind handlers
+            day_popup_layout.unbind(pos=update_bg, size=update_bg)
+        except Exception as e:
+            print(f"Error during popup cleanup: {e}")
+    
+    # Override dismiss to include cleanup
+    original_dismiss = popup.dismiss
+    def dismiss_with_cleanup():
+        cleanup_popup()
+        original_dismiss()
+    popup.dismiss = dismiss_with_cleanup
+    
     popup.open()
 
     # Auto-close after 15 minutes
-    Clock.schedule_once(lambda dt: popup.dismiss(), 900)
+    def auto_close(dt):
+        if popup and hasattr(popup, 'dismiss'):
+            popup.dismiss()
+    auto_close_scheduled = auto_close
+    Clock.schedule_once(auto_close, 900)

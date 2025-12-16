@@ -62,7 +62,6 @@ class Calendar(GridLayout):
         super().__init__(**kwargs)
         self.cols = 1
         self.rows = 5
-        self.dark_mode = is_dark_mode()
 
         today = datetime.date.today()
         self.current_week_date = today
@@ -78,9 +77,9 @@ class Calendar(GridLayout):
         self.weekly_view = WeeklyView(theme=self.theme)
         self.weekly_view.update_week(datetime.date(self.current_year, self.current_month, 1))
 
-        # Set theme-dependent colors
-        self.bg_color = (0.1, 0.1, 0.1, 1) if self.dark_mode else (1, 1, 1, 1)
+        # Set theme-dependent colors - determine dark_mode from theme (theme manager handles auto-switching)
         self.dark_mode = self.theme['text_color'] == 'FFFFFF'
+        self.bg_color = (0.1, 0.1, 0.1, 1) if self.dark_mode else (1, 1, 1, 1)
         self.text_color = self.theme['text_color']
 
         Window.clearcolor = self.theme['bg_color']
@@ -379,10 +378,11 @@ class Calendar(GridLayout):
 
     def rebuild_ui(self, root_ref):
         # Re-run initialization with new theme
-        root_ref = self.float_root
+        # Use provided root_ref, fallback to self.float_root if None
+        actual_root = root_ref if root_ref is not None else self.float_root
         self.clear_widgets()
         self.__init__()
-        self.set_float_root(root_ref)
+        self.set_float_root(actual_root)
 
     def check_theme_switch(self, dt):
         """
@@ -424,9 +424,15 @@ class Calendar(GridLayout):
         print('Saved Event:', event_data)
         self.show_toast(f"Event '{event_data['title']}' added!")
 
-        event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
-        self.selected_day = event_date
-        self.build_calendar(self.current_year, self.current_month)
+        try:
+            event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
+            self.selected_day = event_date
+            self.build_calendar(self.current_year, self.current_month)
+        except (ValueError, KeyError) as e:
+            print(f"Error parsing event date '{event_data.get('date', 'N/A')}': {e}")
+            # Fallback: use today's date
+            self.selected_day = datetime.date.today()
+            self.build_calendar(self.current_year, self.current_month)
 
     def show_toast(self, message, duration=2.5):
         """
@@ -468,10 +474,35 @@ class Calendar(GridLayout):
             # Animate out after a delay
 
             def dismiss_toast(*_):
-                anim_out = Animation(opacity=0, duration=0.2)
-                anim_out.bind(on_complete=lambda *x: self.float_root
-                              .remove_widget(toast))
-                anim_out.start(toast)
+                if toast.parent:  # Check if still in widget tree
+                    anim_out = Animation(opacity=0, duration=0.2)
+                    
+                    def cleanup_toast(*_):
+                        # Properly cleanup toast widget
+                        try:
+                            # Unbind all handlers
+                            toast.unbind(pos=update_rect, size=update_rect)
+                            # Clear canvas
+                            toast.canvas.before.clear()
+                            toast.canvas.clear()
+                            # Remove widget
+                            if toast.parent:
+                                toast.parent.remove_widget(toast)
+                            # Cancel any pending animations
+                            Animation.cancel_all(toast)
+                        except Exception as e:
+                            print(f"Error cleaning up toast: {e}")
+                    
+                    anim_out.bind(on_complete=cleanup_toast)
+                    anim_out.start(toast)
+                else:
+                    # Widget already removed, just cleanup
+                    Animation.cancel_all(toast)
+                    try:
+                        toast.canvas.before.clear()
+                        toast.canvas.clear()
+                    except:
+                        pass
 
             anim_in.start(toast)
 

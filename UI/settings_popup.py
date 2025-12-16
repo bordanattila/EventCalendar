@@ -139,7 +139,6 @@ def create_settings_popup(theme_manager, apply_callback, theme):
     settings_popup_layout.add_widget(button_box)
 
     auto_mode_switch.bind(active=toggle_spinner_state)
-    save_button.bind()
     toggle_spinner_state()
 
     return popup

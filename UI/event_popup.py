@@ -21,6 +21,7 @@ import datetime
 
 from storage.db_manager import save_event_to_db, stop_recurring_event, update_event_in_db, delete_event
 from app.ui_utils import create_themed_button
+from app.cleanup_utils import cleanup_popup, safe_remove_widget
 from UI.components.keyboard import VirtualKeyboard
 
 
@@ -44,7 +45,7 @@ class AddEventPopup(Popup):
         self.theme = theme or {}
         self.event = event
         self.title = 'Edit Event' if self.event else 'Add Event'
-        self.title_color = get_color_from_hex(theme['text_color'])
+        self.title_color = get_color_from_hex(self.theme.get('text_color', '#000000'))
         self.title_align = 'center'
         self.size_hint = (0.5, 0.7)
         self.on_save_callback = on_save_callback
@@ -227,6 +228,65 @@ class AddEventPopup(Popup):
 
     def __del__(self):
         print("🧹 AddEventPopup destroyed")
+    
+    def cleanup(self):
+        """
+        Properly cleans up all resources before dismissing the popup.
+        This prevents memory leaks and ensures all references are released.
+        """
+        # Cleanup keyboard if it exists
+        if hasattr(self, 'keyboard') and self.keyboard:
+            # Unbind keyboard from inputs
+            for input_field in [self.title_input, self.time_input, self.location_input, self.notes_input]:
+                if input_field:
+                    try:
+                        # Try to unbind the focus event
+                        if hasattr(input_field, 'unbind'):
+                            input_field.unbind(focus=self.keyboard.on_focus)
+                    except:
+                        pass
+            
+            # Call keyboard's own cleanup
+            if hasattr(self.keyboard, 'cleanup'):
+                self.keyboard.cleanup()
+            else:
+                safe_remove_widget(self.keyboard)
+            self.keyboard = None
+        
+        # Clear canvas instructions
+        if hasattr(self, 'canvas'):
+            try:
+                self.canvas.before.clear()
+                self.canvas.clear()
+                self.canvas.after.clear()
+            except:
+                pass
+        
+        # Clear input field references
+        for attr in ['title_input', 'time_input', 'location_input', 'notes_input', 'recurrence_spinner', 'date_label']:
+            if hasattr(self, attr):
+                widget = getattr(self, attr)
+                if widget:
+                    try:
+                        Animation.cancel_all(widget)
+                    except:
+                        pass
+                setattr(self, attr, None)
+        
+        # Clear content reference
+        if hasattr(self, 'content') and self.content:
+            safe_remove_widget(self.content)
+            self.content = None
+        
+        # Cancel any pending animations on self
+        try:
+            Animation.cancel_all(self)
+        except:
+            pass
+        
+        # Clear app reference
+        if hasattr(self, 'app_ref'):
+            self.app_ref = None
 
     def set_selected_date(self, date_obj):
         """Sets the popup's displayed date label to the given date."""
@@ -250,6 +310,26 @@ class AddEventPopup(Popup):
         if not title or not date or not time:
             # Show inline toast if any required field is missing
             self.show_popup_toast('Please fill in required fields.')
+            return
+
+        # Validate date format (YYYY-MM-DD)
+        try:
+            datetime.datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            self.show_popup_toast('Invalid date format. Please use YYYY-MM-DD format.')
+            return
+
+        # Validate time format (HH:MM)
+        try:
+            time_parts = time.split(':')
+            if len(time_parts) != 2:
+                raise ValueError("Invalid time format")
+            hour = int(time_parts[0])
+            minute = int(time_parts[1])
+            if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                raise ValueError("Invalid time range")
+        except (ValueError, IndexError):
+            self.show_popup_toast('Invalid time format. Please use HH:MM format (24-hour).')
             return
 
         event_data = {
@@ -276,9 +356,10 @@ class AddEventPopup(Popup):
             self.app_ref.show_toast(f"Event '{event_data['title']}' added!")
 
         # Refresh calendar to show new event
-        if hasattr(self.app_ref, "build_view"):
-            self.app_ref.selected_day = None
-            self.app_ref.build_view(self.app_ref.current_year, self.app_ref.current_month)
+        if hasattr(self.app_ref, "build_calendar"):
+            event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
+            self.app_ref.selected_day = event_date
+            self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
 
     def _update_popup_border(self, *_):
         """Keeps the styled popup border in sync with the popup's size and position."""
@@ -363,7 +444,7 @@ class AddEventPopup(Popup):
         :return:
         """
         if self.event and delete_event(self.event.id):
-            self.show_popup_toast("Evnet deleted.")
+            self.show_popup_toast("Event deleted.")
             self.dismiss()
 
             # Delay the calendar refresh to occur AFTER the popup closes
@@ -380,8 +461,6 @@ class AddEventPopup(Popup):
             self.show_popup_toast("Unable to delete event.")
 
     def on_dismiss(self):
-        if hasattr(self, "keyboard") and self.keyboard:
-            if self.keyboard.parent:
-                self.keyboard.parent.remove_widget(self.keyboard)
-            self.keyboard = None
-        self.content = None
+        """Called when the popup is dismissed. Ensures proper cleanup."""
+        self.cleanup()
+        super().on_dismiss()

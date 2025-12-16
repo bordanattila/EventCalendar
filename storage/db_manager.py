@@ -55,18 +55,25 @@ def save_event_to_db(event_data: dict[str, str]) -> None:
 
     Args:
         event_data (dict): Dictionary containing title, date, time, location, notes, and recurrence.
+    
+    Raises:
+        Exception: If database operation fails.
     """
-    with SessionLocal() as session:
-        new_event = Event(
-            title=event_data['title'],
-            date=event_data['date'],
-            time=event_data['time'],
-            location=event_data['location'],
-            notes=event_data['notes'],
-            recurrence=event_data['recurrence'],
-        )
-        session.add_all([new_event])
-        session.commit()
+    try:
+        with SessionLocal() as session:
+            new_event = Event(
+                title=event_data['title'],
+                date=event_data['date'],
+                time=event_data['time'],
+                location=event_data['location'],
+                notes=event_data['notes'],
+                recurrence=event_data['recurrence'],
+            )
+            session.add_all([new_event])
+            session.commit()
+    except Exception as e:
+        print(f"Error saving event to database: {e}")
+        raise
 
 
 def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
@@ -79,34 +86,46 @@ def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
 
     Returns:
         dict: Keys are ISO-format dates, values are lists of Event objects.
+    
+    Raises:
+        ValueError: If week_number is invalid.
+        Exception: If database operation fails.
     """
-    # Get Sunday as the first day of the week
-    # weekday: Mon=0 ... Sun=6
-    sunday = datetime.date.fromisocalendar(year, week_number, 7)
-    start_date = sunday
-    end_date = start_date + datetime.timedelta(days=7)
+    try:
+        # Get Sunday as the first day of the week
+        # weekday: Mon=0 ... Sun=6
+        sunday = datetime.date.fromisocalendar(year, week_number, 7)
+        start_date = sunday
+        end_date = start_date + datetime.timedelta(days=7)
+    except ValueError as e:
+        print(f"Error: Invalid week number {week_number} for year {year}: {e}")
+        return {}
 
-    with SessionLocal() as session:
-        # Separate regular (non-recurring) and recurring events
-        regular = session.query(Event).filter(
-            Event.recurrence == 'None',
-            Event.date >= str(start_date),
-            Event.date < str(end_date)
-        ).all()
-        recurring = session.query(Event).filter(Event.recurrence != 'None').all()
+    try:
+        with SessionLocal() as session:
+            # Separate regular (non-recurring) and recurring events
+            regular = session.query(Event).filter(
+                Event.recurrence == 'none',
+                Event.date >= str(start_date),
+                Event.date < str(end_date)
+            ).all()
+            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
 
-    all_events = regular + recurring
+        all_events = regular + recurring
 
-    # Build dictionary of events per day
-    event_dict: dict[str, list[Event]] = {}
-    for single_date in (start_date + datetime.timedelta(days=n) for n in range(7)):
-        key = str(single_date)
-        event_dict[key] = [
-            e for e in all_events if is_event_on_date(e, single_date)
-        ]
+        # Build dictionary of events per day
+        event_dict: dict[str, list[Event]] = {}
+        for single_date in (start_date + datetime.timedelta(days=n) for n in range(7)):
+            key = str(single_date)
+            event_dict[key] = [
+                e for e in all_events if is_event_on_date(e, single_date)
+            ]
 
-    print("Weekly event dict:", {k: [e.title for e in v] for k, v in event_dict.items()})
-    return event_dict
+        print("Weekly event dict:", {k: [e.title for e in v] for k, v in event_dict.items()})
+        return event_dict
+    except Exception as e:
+        print(f"Error fetching events for week: {e}")
+        return {}
 
 
 def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
@@ -119,35 +138,47 @@ def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
 
     Returns:
         dict: Keys are ISO-format dates, values are lists of Event objects.
+    
+    Raises:
+        ValueError: If month is invalid.
+        Exception: If database operation fails.
     """
-    _, num_days = calendar.monthrange(year, month)
+    try:
+        _, num_days = calendar.monthrange(year, month)
 
-    start_date = datetime.date(year, month, 1)
-    if month == 12:
-        end_date = datetime.date(year + 1, 1, 1)
-    else:
-        end_date = datetime.date(year, month + 1, 1)
+        start_date = datetime.date(year, month, 1)
+        if month == 12:
+            end_date = datetime.date(year + 1, 1, 1)
+        else:
+            end_date = datetime.date(year, month + 1, 1)
+    except (ValueError, calendar.IllegalMonthError) as e:
+        print(f"Error: Invalid month {month} for year {year}: {e}")
+        return {}
 
-    with SessionLocal() as session:
-        regular = session.query(Event).filter(
-            Event.recurrence == 'None',
-            Event.date >= str(start_date),
-            Event.date < str(end_date)
-        ).all()
+    try:
+        with SessionLocal() as session:
+            regular = session.query(Event).filter(
+                Event.recurrence == 'none',
+                Event.date >= str(start_date),
+                Event.date < str(end_date)
+            ).all()
 
-        recurring = session.query(Event).filter(Event.recurrence != 'None').all()
+            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
 
-    all_events = regular + recurring
+        all_events = regular + recurring
 
-    event_dict: dict[str, list[Event]] = {}
+        event_dict: dict[str, list[Event]] = {}
 
-    for day in range(1, num_days + 1):
-        current_date = datetime.date(year, month, day)
-        key = str(current_date)
-        event_dict[key] = [e for e in all_events if is_event_on_date(e, current_date)]
+        for day in range(1, num_days + 1):
+            current_date = datetime.date(year, month, day)
+            key = str(current_date)
+            event_dict[key] = [e for e in all_events if is_event_on_date(e, current_date)]
 
-    print("Loaded events for", year, month, "→", sum(len(v) for v in event_dict.values()), "total")
-    return event_dict
+        print("Loaded events for", year, month, "→", sum(len(v) for v in event_dict.values()), "total")
+        return event_dict
+    except Exception as e:
+        print(f"Error fetching events for month: {e}")
+        return {}
 
 
 def stop_recurring_event(event_id: int) -> bool:
@@ -160,13 +191,17 @@ def stop_recurring_event(event_id: int) -> bool:
     Returns:
         bool: True if the update succeeded, False otherwise.
     """
-    with SessionLocal() as session:
-        db_event = session.query(Event).get(event_id)
-        if db_event and db_event.recurrence.lower() != "none":
-            db_event.recurrence_end = datetime.date.today().strftime('%Y-%m-%d')
-            session.commit()
-            return True
-    return False
+    try:
+        with SessionLocal() as session:
+            db_event = session.query(Event).get(event_id)
+            if db_event and db_event.recurrence.lower() != "none":
+                db_event.recurrence_end = datetime.date.today().strftime('%Y-%m-%d')
+                session.commit()
+                return True
+        return False
+    except Exception as e:
+        print(f"Error stopping recurring event {event_id}: {e}")
+        return False
 
 
 def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
@@ -176,17 +211,26 @@ def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
     Args:
         event_id (int): ID of the event to update.
         updated_data (dict): Dictionary containing new title, date, time, location, notes, recurrence.
+    
+    Raises:
+        Exception: If database operation fails.
     """
-    with SessionLocal() as session:
-        event = session.query(Event).get(event_id)
-        if event:
-            event.title = updated_data['title']
-            event.date = updated_data['date']
-            event.time = updated_data['time']
-            event.location = updated_data['location']
-            event.notes = updated_data['notes']
-            event.recurrence = updated_data['recurrence']
-            session.commit()
+    try:
+        with SessionLocal() as session:
+            event = session.query(Event).get(event_id)
+            if event:
+                event.title = updated_data['title']
+                event.date = updated_data['date']
+                event.time = updated_data['time']
+                event.location = updated_data['location']
+                event.notes = updated_data['notes']
+                event.recurrence = updated_data['recurrence']
+                session.commit()
+            else:
+                print(f"Warning: Event with ID {event_id} not found for update")
+    except Exception as e:
+        print(f"Error updating event {event_id}: {e}")
+        raise
 
 
 def delete_event(event_id: int) -> bool:
@@ -194,15 +238,19 @@ def delete_event(event_id: int) -> bool:
     Removes selected event from the database.
 
     Args:
-        event_id (int): ID of the event to stop recurring.
+        event_id (int): ID of the event to delete.
 
     Returns:
         bool: True if the deletion succeeded, False otherwise.
     """
-    with SessionLocal() as session:
-        db_event = session.query(Event).get(event_id)
-        if db_event:
-            session.delete(db_event)
-            session.commit()
-            return True
-    return False
+    try:
+        with SessionLocal() as session:
+            db_event = session.query(Event).get(event_id)
+            if db_event:
+                session.delete(db_event)
+                session.commit()
+                return True
+        return False
+    except Exception as e:
+        print(f"Error deleting event {event_id}: {e}")
+        return False

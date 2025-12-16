@@ -30,14 +30,30 @@ def get_location():
         tuple: (latitude: float, longitude: float, city: str) or (None, None, None) on failure.
     """
     try:
-        response = requests.get(f"https://ipinfo.io/json?token={token}")
+        response = requests.get(f"https://ipinfo.io/json?token={token}", timeout=5)
+        response.raise_for_status()  # Raise an exception for bad status codes
         data = response.json()
         loc = data.get('loc')
         city = data.get('city')
-        lat, lon = map(float, loc.split(','))
-        return lat, lon, city
+        
+        if not loc:
+            print("Failed to get location: 'loc' field missing from response")
+            return None, None, None
+        
+        try:
+            lat, lon = map(float, loc.split(','))
+            return lat, lon, city
+        except (ValueError, AttributeError) as e:
+            print(f"Failed to parse location data '{loc}': {e}")
+            return None, None, None
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to get location (network error): {e}")
+        return None, None, None
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"Failed to get location (data error): {e}")
+        return None, None, None
     except Exception as e:
-        print("Failed to get location", e)
+        print(f"Failed to get location (unexpected error): {e}")
         return None, None, None
 
 
@@ -50,22 +66,43 @@ def get_weather(lat, lon):
         lon (float): Longitude
 
     Returns:
-        tuple: (temperature: int, icon_code: str) or (None, None) on failure
+        tuple: (temperature: int, fahrenheit: int, icon_code: str) or (None, None, None) on failure
     """
+    if lat is None or lon is None:
+        print("Failed to get weather: Invalid coordinates")
+        return None, None, None
+    
     try:
         url = (
             f"https://api.openweathermap.org/data/2.5/weather?"
             f"lat={lat}&lon={lon}&units=metric&appid={API_KEY}"
         )
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()  # Raise an exception for bad status codes
         data = response.json()
+        
+        # Validate response structure
+        if "main" not in data or "temp" not in data["main"]:
+            print("Failed to get weather: Invalid response structure (missing 'main.temp')")
+            return None, None, None
+        
+        if "weather" not in data or not data["weather"] or "icon" not in data["weather"][0]:
+            print("Failed to get weather: Invalid response structure (missing 'weather[0].icon')")
+            return None, None, None
+        
         celsius = round(data["main"]["temp"])
         fahrenheit = round((celsius * (9/5)) + 32)
         icon = data["weather"][0]["icon"]
         return celsius, fahrenheit, icon
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to get weather (network error): {e}")
+        return None, None, None
+    except (KeyError, ValueError, TypeError, IndexError) as e:
+        print(f"Failed to get weather (data error): {e}")
+        return None, None, None
     except Exception as e:
-        print("Failed to get weather:", e)
-        return None, None
+        print(f"Failed to get weather (unexpected error): {e}")
+        return None, None, None
 
 
 def is_event_on_date(event, target_date):
@@ -83,10 +120,15 @@ def is_event_on_date(event, target_date):
     try:
         event_date = dt.datetime.strptime(event.date, '%Y-%m-%d').date()
         recurrence = event.recurrence.lower()
-        recurrence_end = (
-            dt.datetime.strptime(event.recurrence_end, '%Y-%m-%d').date()
-            if event.recurrence_end else None
-        )
+        
+        # Safely parse recurrence_end with validation
+        recurrence_end = None
+        if event.recurrence_end:
+            try:
+                recurrence_end = dt.datetime.strptime(event.recurrence_end, '%Y-%m-%d').date()
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ Warning: Invalid recurrence_end format '{event.recurrence_end}': {e}")
+                recurrence_end = None
 
         if recurrence_end and target_date > recurrence_end:
             return False
