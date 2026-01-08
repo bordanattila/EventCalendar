@@ -184,7 +184,7 @@ class AddEventPopup(Popup):
             button_box.add_widget(self.stop_button)
 
         # Only show 'Delete' if editing an existing event
-        if self.event and self.event.title != "none":
+        if self.event:
             self.delete_button = create_themed_button(
                 "Delete",
                 self.theme,
@@ -339,12 +339,18 @@ class AddEventPopup(Popup):
             'location': location,
             'notes': notes,
             'recurrence': recurrence,
+            'recurrence_end': self.event.recurrence_end if self.event and hasattr(self.event, 'recurrence_end') else None,
         }
 
-        if self.event:
-            update_event_in_db(self.event.id, event_data)
-        else:
-            save_event_to_db(event_data)
+        try:
+            if self.event:
+                update_event_in_db(self.event.id, event_data)
+            else:
+                save_event_to_db(event_data)
+        except Exception as e:
+            print(f"Error saving event: {e}")
+            self.show_popup_toast(f"Failed to save event: {str(e)}")
+            return
 
         if self.on_save_callback:
             self.on_save_callback(event_data)
@@ -357,9 +363,14 @@ class AddEventPopup(Popup):
 
         # Refresh calendar to show new event
         if hasattr(self.app_ref, "build_calendar"):
-            event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
-            self.app_ref.selected_day = event_date
-            self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
+            try:
+                event_date = datetime.datetime.strptime(event_data['date'], '%Y-%m-%d').date()
+                self.app_ref.selected_day = event_date
+                self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
+            except (ValueError, KeyError) as e:
+                print(f"Error parsing event date for calendar refresh: {e}")
+                # Fallback: just rebuild current view
+                self.app_ref.build_calendar(self.app_ref.current_year, self.app_ref.current_month)
 
     def _update_popup_border(self, *_):
         """Keeps the styled popup border in sync with the popup's size and position."""

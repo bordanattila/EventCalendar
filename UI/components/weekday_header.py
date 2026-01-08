@@ -92,7 +92,7 @@ class WeekdayHeader(GridLayout):
 
         # Use theme background in auto-dark mode to maintain consistency
         if self.theme_manager.settings.get('auto_mode') and self.dark_mode:
-            bg_color = self.theme['bg_color']
+            bg_color = get_color_from_hex(self.theme['bg_color'])
 
         # Draw background rectangle
         with box.canvas.before:

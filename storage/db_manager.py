@@ -54,11 +54,18 @@ def save_event_to_db(event_data: dict[str, str]) -> None:
     Saves a new event to the database.
 
     Args:
-        event_data (dict): Dictionary containing title, date, time, location, notes, and recurrence.
+        event_data (dict): Dictionary containing title, date, time, location, notes, recurrence, and optionally recurrence_end.
     
     Raises:
+        KeyError: If required keys are missing from event_data.
         Exception: If database operation fails.
     """
+    # Validate required keys
+    required_keys = ['title', 'date', 'time', 'location', 'notes', 'recurrence']
+    missing_keys = [key for key in required_keys if key not in event_data]
+    if missing_keys:
+        raise KeyError(f"Missing required keys in event_data: {missing_keys}")
+    
     try:
         with SessionLocal() as session:
             new_event = Event(
@@ -68,6 +75,7 @@ def save_event_to_db(event_data: dict[str, str]) -> None:
                 location=event_data['location'],
                 notes=event_data['notes'],
                 recurrence=event_data['recurrence'],
+                recurrence_end=event_data.get('recurrence_end'),  # Optional field
             )
             session.add_all([new_event])
             session.commit()
@@ -210,11 +218,18 @@ def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
 
     Args:
         event_id (int): ID of the event to update.
-        updated_data (dict): Dictionary containing new title, date, time, location, notes, recurrence.
+        updated_data (dict): Dictionary containing new title, date, time, location, notes, recurrence, and optionally recurrence_end.
     
     Raises:
+        KeyError: If required keys are missing from updated_data.
         Exception: If database operation fails.
     """
+    # Validate required keys
+    required_keys = ['title', 'date', 'time', 'location', 'notes', 'recurrence']
+    missing_keys = [key for key in required_keys if key not in updated_data]
+    if missing_keys:
+        raise KeyError(f"Missing required keys in updated_data: {missing_keys}")
+    
     try:
         with SessionLocal() as session:
             event = session.query(Event).get(event_id)
@@ -225,6 +240,9 @@ def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
                 event.location = updated_data['location']
                 event.notes = updated_data['notes']
                 event.recurrence = updated_data['recurrence']
+                # Update recurrence_end if provided
+                if 'recurrence_end' in updated_data:
+                    event.recurrence_end = updated_data['recurrence_end']
                 session.commit()
             else:
                 print(f"Warning: Event with ID {event_id} not found for update")

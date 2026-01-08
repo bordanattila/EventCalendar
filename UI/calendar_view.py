@@ -299,7 +299,7 @@ class Calendar(GridLayout):
                             app_ref=self,
                             theme=self.theme,
                             event=event_ref,
-                            on_save_callback=lambda date: self.build_calendar(self.current_year, self.current_month)
+                            on_save_callback=lambda event_data: self.build_calendar(self.current_year, self.current_month)
                         )
                         popup.opacity = 0
                         popup.bind(on_dismiss=popup.on_dismiss)
@@ -534,8 +534,7 @@ class Calendar(GridLayout):
 
         week_dates = None
         if self.is_weekly_view:
-            today = datetime.date.today()
-            week_dates = WeeklyView.get_current_week_dates()  # Use the static method from WeeklyView
+            week_dates = WeeklyView.get_current_week_dates(self.current_week_date)  # Use the static method from WeeklyView
 
         # Re-create the weekday header with appropriate settings
         self.weekday_header = WeekdayHeader(
