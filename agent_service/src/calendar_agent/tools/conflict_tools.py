@@ -6,7 +6,7 @@ These tools help identify scheduling conflicts and find free time.
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
-from langchain_core.tools import tool
+from langchain.tools import tool
 
 from calendar_agent.db.repo import EventRepository
 
@@ -21,11 +21,6 @@ def check_conflicts_tool(
     """
     Check for scheduling conflicts on a given date and time.
     
-    Use this tool when the user wants to:
-    - Check if a time slot is available
-    - See if an event would conflict with existing events
-    - Validate a proposed event time
-    
     Args:
         date: Date to check in YYYY-MM-DD format
         start_time: Start time in HH:MM format
@@ -33,23 +28,22 @@ def check_conflicts_tool(
         exclude_event_id: Event ID to exclude from conflict check (for updates)
     
     Returns:
-        Dictionary with has_conflicts boolean and list of conflicting events
+        List of conflicting events, if any
     """
     try:
         repo = EventRepository()
-        conflicts = repo.check_conflicts(
-            start_date=date,
+        conflicts = repo.find_conflicts(
+            date=date,
             start_time=start_time,
             end_time=end_time,
-            ignore_event_id=exclude_event_id
+            exclude_event_id=exclude_event_id
         )
         
         return {
             "success": True,
             "has_conflicts": len(conflicts) > 0,
             "conflicts": conflicts,
-            "count": len(conflicts),
-            "message": f"Found {len(conflicts)} conflicting event(s)" if conflicts else "No conflicts found"
+            "count": len(conflicts)
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -63,17 +57,12 @@ def get_free_slots_tool(
     """
     Get available free time slots for a given date.
     
-    Use this tool when the user wants to:
-    - Find available time for a new event
-    - See when they're free on a specific day
-    - Find a slot for a meeting of a specific duration
-    
     Args:
         date: Date to check in YYYY-MM-DD format
         min_duration_minutes: Minimum slot duration in minutes
     
     Returns:
-        List of free time slots with their durations
+        List of free time slots
     """
     try:
         repo = EventRepository()
@@ -85,8 +74,7 @@ def get_free_slots_tool(
             "free_slots": free_slots,
             "busy_times": busy_times,
             "free_count": len(free_slots),
-            "busy_count": len(busy_times),
-            "message": f"Found {len(free_slots)} free slot(s) of at least {min_duration_minutes} minutes"
+            "busy_count": len(busy_times)
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -96,39 +84,70 @@ def get_free_slots_tool(
 def find_crunch_days_tool(
     start_date: str,
     end_date: str,
-    threshold_events: int = 4
+    threshold_events: int = 5,
+    threshold_hours: float = 6.0
 ) -> Dict[str, Any]:
     """
-    Find "crunch days" - days with too many scheduled events.
+    Find "crunch days" - days with heavy schedules.
     
-    Use this tool when the user asks about:
-    - Busy days
-    - Crunch days
-    - Overloaded schedule
-    - Heavy days next week/month
+    A crunch day is defined as having many events or many hours scheduled.
     
     Args:
         start_date: Start of range in YYYY-MM-DD format
         end_date: End of range in YYYY-MM-DD format
-        threshold_events: Minimum number of events to consider it a crunch day (default: 4)
+        threshold_events: Minimum events to consider it a crunch day
+        threshold_hours: Minimum scheduled hours to consider it a crunch day
     
     Returns:
-        List of crunch days with event counts and details
+        List of crunch days with details
     """
     try:
         repo = EventRepository()
-        crunch_days = repo.crunch_days(start_date, end_date, threshold_events)
+        events = repo.get_events_in_range(start_date, end_date)
         
-        # Also get total days and events for context
-        all_events = repo.list_events(start_date, end_date)
+        # Group events by date
+        events_by_date: Dict[str, List] = {}
+        for event in events:
+            date = event["date"]
+            if date not in events_by_date:
+                events_by_date[date] = []
+            events_by_date[date].append(event)
+        
+        crunch_days = []
+        normal_days = []
+        
+        for date, day_events in events_by_date.items():
+            # Calculate total scheduled hours
+            total_minutes = 0
+            for event in day_events:
+                start = datetime.strptime(event["time"], "%H:%M")
+                end_time = event.get("end_time") or event["time"]
+                end = datetime.strptime(end_time, "%H:%M")
+                if end <= start:
+                    end += timedelta(hours=1)  # Default 1 hour
+                total_minutes += (end - start).seconds // 60
+            
+            total_hours = total_minutes / 60
+            event_count = len(day_events)
+            
+            day_info = {
+                "date": date,
+                "event_count": event_count,
+                "total_hours": round(total_hours, 1),
+                "events": [{"title": e["title"], "time": e["time"]} for e in day_events]
+            }
+            
+            if event_count >= threshold_events or total_hours >= threshold_hours:
+                crunch_days.append(day_info)
+            else:
+                normal_days.append(day_info)
         
         return {
             "success": True,
-            "crunch_days": crunch_days,
+            "crunch_days": sorted(crunch_days, key=lambda x: x["date"]),
             "crunch_count": len(crunch_days),
-            "threshold": threshold_events,
-            "total_events_in_range": len(all_events),
-            "message": f"Found {len(crunch_days)} crunch day(s) with {threshold_events}+ events"
+            "normal_days": sorted(normal_days, key=lambda x: x["date"]),
+            "total_days_analyzed": len(events_by_date)
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -138,11 +157,6 @@ def find_crunch_days_tool(
 def get_day_summary_tool(date: str) -> Dict[str, Any]:
     """
     Get a summary of a specific day's schedule.
-    
-    Use this tool when the user wants to:
-    - See what's planned for a day
-    - Get an overview of their schedule
-    - Check how busy a day is
     
     Args:
         date: Date to summarize in YYYY-MM-DD format
@@ -175,58 +189,7 @@ def get_day_summary_tool(date: str) -> Dict[str, Any]:
             "free_slots": free_slots,
             "first_event": events[0] if events else None,
             "last_event": events[-1] if events else None,
-            "message": f"{len(events)} event(s), {round(total_busy_minutes/60, 1)}h busy, {round(total_free_minutes/60, 1)}h free"
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-
-@tool
-def check_conflicts_for_move_tool(
-    event_id: int,
-    new_date: str,
-    new_time: str
-) -> Dict[str, Any]:
-    """
-    Check if moving an event would create conflicts.
-    
-    Use this tool when the user wants to:
-    - Move an event to a new time
-    - Reschedule an event
-    - Check if a move is safe
-    
-    Args:
-        event_id: ID of the event to move
-        new_date: New date in YYYY-MM-DD format
-        new_time: New start time in HH:MM format
-    
-    Returns:
-        Whether the move is safe and any conflicts
-    """
-    try:
-        repo = EventRepository()
-        
-        # Get the original event
-        original = repo.get_event(event_id)
-        if not original:
-            return {"success": False, "error": f"Event {event_id} not found"}
-        
-        # Check conflicts at new time (excluding this event)
-        conflicts = repo.check_conflicts(
-            start_date=new_date,
-            start_time=new_time,
-            ignore_event_id=event_id
-        )
-        
-        return {
-            "success": True,
-            "event": original,
-            "new_date": new_date,
-            "new_time": new_time,
-            "has_conflicts": len(conflicts) > 0,
-            "conflicts": conflicts,
-            "safe_to_move": len(conflicts) == 0,
-            "message": "Safe to move" if not conflicts else f"Would conflict with {len(conflicts)} event(s)"
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}

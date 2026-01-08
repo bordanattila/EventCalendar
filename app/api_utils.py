@@ -127,7 +127,7 @@ def is_event_on_date(event, target_date):
             try:
                 recurrence_end = dt.datetime.strptime(event.recurrence_end, '%Y-%m-%d').date()
             except (ValueError, TypeError) as e:
-                print(f"⚠️ Warning: Invalid recurrence_end format '{event.recurrence_end}': {e}")
+                print(f"Warning: Invalid recurrence_end format '{event.recurrence_end}': {e}")
                 recurrence_end = None
 
         if recurrence_end and target_date > recurrence_end:
@@ -150,5 +150,5 @@ def is_event_on_date(event, target_date):
 
         return False  # fallback
     except Exception as e:
-        print(f"⚠️ Error checking recurrence: {e}")
+        print(f"Error checking recurrence: {e}")
         return False

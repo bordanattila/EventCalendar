@@ -273,10 +273,9 @@ class AddEventPopup(Popup):
                         pass
                 setattr(self, attr, None)
         
-        # Clear content reference
+        # Clear content children (don't set content to None - Kivy doesn't allow it)
         if hasattr(self, 'content') and self.content:
-            safe_remove_widget(self.content)
-            self.content = None
+            self.content.clear_widgets()
         
         # Cancel any pending animations on self
         try:
@@ -442,7 +441,7 @@ class AddEventPopup(Popup):
                     if float_root:
                         self.app_ref.rebuild_ui(float_root)
                     else:
-                        print("⚠️ Warning: float_root not found for rebuild.")
+                        print("Warning: float_root not found for rebuild.")
 
             Clock.schedule_once(refresh_ui, 0.3)
         else:
@@ -465,13 +464,13 @@ class AddEventPopup(Popup):
                     if float_root:
                         self.app_ref.rebuild_ui(float_root)
                     else:
-                        print("⚠️ Warning: float_root not found for rebuild.")
+                        print("Warning: float_root not found for rebuild.")
 
             Clock.schedule_once(refresh_ui, 0.3)
         else:
             self.show_popup_toast("Unable to delete event.")
 
-    def on_dismiss(self):
+    def on_dismiss(self, *args):
         """Called when the popup is dismissed. Ensures proper cleanup."""
         self.cleanup()
-        super().on_dismiss()
+        return super().on_dismiss()

@@ -5,3 +5,4 @@ calendar.db
 *.sqlite3
 .env
 theme_settings.json
+venv

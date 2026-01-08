@@ -6,6 +6,7 @@ Defines a reusable bottom navigation bar for the Family Calendar app.
 Includes buttons to:
 - Toggle between weekly and monthly views
 - Add a new event
+- Open the AI agent popup
 - Open the settings popup
 
 Author: Attila Bordan
@@ -16,24 +17,26 @@ from app.ui_utils import create_themed_button
 
 class BottomBar(GridLayout):
     """
-    A themed bottom navigation bar with three buttons:
+    A themed bottom navigation bar with four buttons:
     - Toggle View: Switches between weekly and monthly calendar views.
     - Add Event: Opens the Add Event popup.
+    - Schedule Agent: Opens the AI agent popup.
     - Settings: Opens the settings panel.
 
     Args:
         theme (dict): The active theme dictionary.
         on_add_event (callable): Callback for the Add Event button.
         on_toggle_view (callable): Callback for the Toggle View button.
+        on_agent (callable): Callback for the Agent button.
         on_show_settings (callable): Callback for the Settings button.
         is_weekly_view (bool): Indicates whether the current view is weekly or monthly.
     """
-    def __init__(self, theme, on_add_event, on_toggle_view, on_show_settings, is_weekly_view=False, **kwargs):
+    def __init__(self, theme, on_add_event, on_toggle_view, on_agent, on_show_settings, is_weekly_view=False, **kwargs):
         super().__init__(**kwargs)
-        self.cols = 3
+        self.cols = 4
         self.size_hint_y = 0.06
-        self.spacing = 50
-        self.padding = [50, 15, 50, 10]
+        self.spacing = 30
+        self.padding = [30, 15, 30, 10]
         self.theme = theme
         self.is_weekly_view = is_weekly_view
 
@@ -45,11 +48,14 @@ class BottomBar(GridLayout):
                                                          return_button=True)
         self.toggle_view_button = toggle_btn
         self.add_widget(toggle_layout)
+        
         add_layout, _ = create_themed_button('+ Add Event', self.theme, on_press=on_add_event, return_button=True)
-        settings_layout, _ = create_themed_button('Settings', self.theme, on_press=on_show_settings, return_button=True)
-
-        # Add buttons to the grid layout
         self.add_widget(add_layout)
+        
+        agent_layout, _ = create_themed_button('Schedule Agent', self.theme, on_press=on_agent, return_button=True)
+        self.add_widget(agent_layout)
+        
+        settings_layout, _ = create_themed_button('Settings', self.theme, on_press=on_show_settings, return_button=True)
         self.add_widget(settings_layout)
 
     def update_view_button_text(self, is_weekly_view):

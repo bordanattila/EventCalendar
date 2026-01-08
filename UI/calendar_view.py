@@ -127,6 +127,7 @@ class Calendar(GridLayout):
             theme=self.theme,
             on_toggle_view=self.toggle_weekly_view,
             on_add_event=self.on_add_event,
+            on_agent=self.show_agent,
             on_show_settings=self.show_settings,
             is_weekly_view=self.is_weekly_view,
         )
@@ -508,7 +509,7 @@ class Calendar(GridLayout):
 
             Clock.schedule_once(dismiss_toast, duration)
         else:
-            print("⚠️ Warning: float_root not set — cannot display toast.")
+            print("Warning: float_root not set - cannot display toast.")
 
     def set_float_root(self, float_root):
         """Allows the Calendar to add overlays like toast to its parent FloatLayout."""
@@ -516,6 +517,12 @@ class Calendar(GridLayout):
 
     def show_settings(self, instance=None):
         popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root), self.theme)
+        popup.open()
+
+    def show_agent(self, instance=None):
+        """Opens the AI Agent popup for natural language calendar commands."""
+        from UI.agent_popup import AgentPopup
+        popup = AgentPopup(theme=self.theme, on_refresh=lambda: self.rebuild_ui(self.float_root))
         popup.open()
 
     def toggle_weekly_view(self, instance):
