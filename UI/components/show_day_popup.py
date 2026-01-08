@@ -49,12 +49,13 @@ def show_day_popup(day_date, events, theme):
 
     day_popup_layout.bind(pos=update_bg, size=update_bg)
 
-    # Sort events by time and create labels
-    for event in sorted(events, key=lambda e: e.time):
+    # Sort events by time and create labels (all-day events first)
+    for event in sorted(events, key=lambda e: e.time if e.time else ''):
         # TODO: Improve appearance
         # TODO: Add Close button
         # Conditionally include location and notes only if they're not empty
-        event_text = f"[b]{event.time}[/b]  -  {event.title}"
+        time_display = event.time if event.time else "All Day"
+        event_text = f"[b]{time_display}[/b]  -  {event.title}"
 
         if event.location and event.location.strip():
             event_text += f"\n[size=12]Location: {event.location}[/size]"

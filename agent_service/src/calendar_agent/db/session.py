@@ -30,19 +30,23 @@ class Base(DeclarativeBase):
 
 
 class Event(Base):
-    """ORM model for calendar events."""
+    """
+    ORM model for calendar events.
+    
+    MUST match the Kivy app's Event model in storage/db_manager.py:
+    - Table: scheduled_event
+    - Fields: id, title, date, time, location, notes, recurrence, recurrence_end
+    """
     __tablename__ = "scheduled_event"
     
     id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(50))
     date: Mapped[str] = mapped_column(String(15), index=True)  # YYYY-MM-DD
-    time: Mapped[str] = mapped_column(String(5))  # HH:MM
-    end_time: Mapped[str] = mapped_column(String(5), nullable=True)  # HH:MM (optional)
-    location: Mapped[str] = mapped_column(String(200), nullable=True)
-    notes: Mapped[str] = mapped_column(String(500), nullable=True)
-    recurrence: Mapped[str] = mapped_column(String(50), default="none", index=True)
+    time: Mapped[str] = mapped_column(String(5))  # HH:MM or empty for all-day
+    location: Mapped[str] = mapped_column(String(50))
+    notes: Mapped[str] = mapped_column(String(200))
+    recurrence: Mapped[str] = mapped_column(String(10), index=True)  # none, daily, weekly, monthly
     recurrence_end: Mapped[str] = mapped_column(String(15), nullable=True)
-    recurrence_rule: Mapped[str] = mapped_column(String(200), nullable=True)  # JSON string for complex rules
     
     def to_dict(self) -> dict:
         """Convert event to dictionary."""
@@ -51,12 +55,10 @@ class Event(Base):
             "title": self.title,
             "date": self.date,
             "time": self.time,
-            "end_time": self.end_time,
             "location": self.location,
             "notes": self.notes,
             "recurrence": self.recurrence,
             "recurrence_end": self.recurrence_end,
-            "recurrence_rule": self.recurrence_rule,
         }
 
 

@@ -4,7 +4,6 @@ Event Repository - Database operations for calendar events.
 Provides CRUD operations and queries used by agent tools.
 """
 
-import json
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -33,26 +32,22 @@ class EventRepository:
         self,
         title: str,
         date: str,
-        time: str,
-        end_time: Optional[str] = None,
-        location: Optional[str] = None,
-        notes: Optional[str] = None,
+        time: Optional[str] = None,  # Optional for all-day events
+        location: str = "",
+        notes: str = "",
         recurrence: str = "none",
         recurrence_end: Optional[str] = None,
-        recurrence_rule: Optional[Dict] = None,
-    ) -> Event:
+    ) -> Dict:
         """Create a new event."""
         with get_session() as session:
             event = Event(
                 title=title,
                 date=date,
-                time=time,
-                end_time=end_time,
-                location=location,
-                notes=notes,
+                time=time or "",  # Empty string for all-day events
+                location=location or "",
+                notes=notes or "",
                 recurrence=recurrence,
                 recurrence_end=recurrence_end,
-                recurrence_rule=json.dumps(recurrence_rule) if recurrence_rule else None,
             )
             session.add(event)
             session.flush()
@@ -119,14 +114,12 @@ class EventRepository:
         title: Optional[str] = None,
         date: Optional[str] = None,
         time: Optional[str] = None,
-        end_time: Optional[str] = None,
         location: Optional[str] = None,
         notes: Optional[str] = None,
         recurrence: Optional[str] = None,
         recurrence_end: Optional[str] = None,
-        recurrence_rule: Optional[Dict] = None,
     ) -> Optional[Dict]:
-        """Update an existing event."""
+        """Update an existing event (partial update)."""
         with get_session() as session:
             event = session.query(Event).filter(Event.id == event_id).first()
             if not event:
@@ -138,8 +131,6 @@ class EventRepository:
                 event.date = date
             if time is not None:
                 event.time = time
-            if end_time is not None:
-                event.end_time = end_time
             if location is not None:
                 event.location = location
             if notes is not None:
@@ -148,8 +139,6 @@ class EventRepository:
                 event.recurrence = recurrence
             if recurrence_end is not None:
                 event.recurrence_end = recurrence_end
-            if recurrence_rule is not None:
-                event.recurrence_rule = json.dumps(recurrence_rule)
             
             session.flush()
             return event.to_dict()
@@ -213,9 +202,13 @@ class EventRepository:
             new_end = datetime.strptime(end_time or start_time, "%H:%M") + timedelta(hours=1)
             
             for event in events:
+                # Skip all-day events (no time) for time-based conflict check
+                if not event.time:
+                    continue
+                    
                 event_start = datetime.strptime(event.time, "%H:%M")
-                event_end_str = event.end_time or event.time
-                event_end = datetime.strptime(event_end_str, "%H:%M") + timedelta(hours=1)
+                # Assume 1 hour duration for events
+                event_end = event_start + timedelta(hours=1)
                 
                 # Check for overlap
                 if new_start < event_end and new_end > event_start:
@@ -229,7 +222,11 @@ class EventRepository:
             events = session.query(Event).filter(Event.date == date).order_by(Event.time).all()
             busy = []
             for event in events:
-                end_time = event.end_time or (
+                # Skip all-day events (no time)
+                if not event.time:
+                    continue
+                # Assume 1 hour duration for events
+                end_time = (
                     datetime.strptime(event.time, "%H:%M") + timedelta(hours=1)
                 ).strftime("%H:%M")
                 busy.append({

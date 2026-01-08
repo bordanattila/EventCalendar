@@ -6,7 +6,7 @@ from kivy.clock import Clock
 
 
 class VirtualKeyboard(BoxLayout):
-    active_input = ObjectProperty(None)
+    active_input = ObjectProperty(None, allownone=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

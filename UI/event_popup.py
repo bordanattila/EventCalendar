@@ -108,7 +108,7 @@ class AddEventPopup(Popup):
         layout.add_widget(self.date_label)
 
         layout.add_widget(Label(
-            text='Time (HH:MM):*',
+            text='Time (HH:MM):',
             color=get_color_from_hex(self.theme.get('text_color', '#000000')),
             size_hint_y=None,
             height=30
@@ -306,9 +306,9 @@ class AddEventPopup(Popup):
         notes = self.notes_input.text.strip()
         recurrence = self.recurrence_spinner.text.strip()
 
-        if not title or not date or not time:
-            # Show inline toast if any required field is missing
-            self.show_popup_toast('Please fill in required fields.')
+        if not title or not date:
+            # Show inline toast if required fields are missing (time is optional for all-day events)
+            self.show_popup_toast('Please fill in title and date.')
             return
 
         # Validate date format (YYYY-MM-DD)
@@ -318,18 +318,19 @@ class AddEventPopup(Popup):
             self.show_popup_toast('Invalid date format. Please use YYYY-MM-DD format.')
             return
 
-        # Validate time format (HH:MM)
-        try:
-            time_parts = time.split(':')
-            if len(time_parts) != 2:
-                raise ValueError("Invalid time format")
-            hour = int(time_parts[0])
-            minute = int(time_parts[1])
-            if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-                raise ValueError("Invalid time range")
-        except (ValueError, IndexError):
-            self.show_popup_toast('Invalid time format. Please use HH:MM format (24-hour).')
-            return
+        # Validate time format (HH:MM) only if time is provided
+        if time:
+            try:
+                time_parts = time.split(':')
+                if len(time_parts) != 2:
+                    raise ValueError("Invalid time format")
+                hour = int(time_parts[0])
+                minute = int(time_parts[1])
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    raise ValueError("Invalid time range")
+            except (ValueError, IndexError):
+                self.show_popup_toast('Invalid time format. Please use HH:MM format (24-hour).')
+                return
 
         event_data = {
             'title': title,

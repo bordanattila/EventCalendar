@@ -273,8 +273,8 @@ class Calendar(GridLayout):
         MAX_EVENTS = 3
         extra_events = max(0, len(all_monthly_events) - MAX_EVENTS)
 
-        # Add event previews (just time + title)
-        for i, event in enumerate(sorted(all_monthly_events, key=lambda e: e.time)[:MAX_EVENTS]):
+        # Add event previews (just time + title, all-day events first)
+        for i, event in enumerate(sorted(all_monthly_events, key=lambda e: e.time if e.time else '')[:MAX_EVENTS]):
             short_title = (event.title[:25] + '...') if len(event.title) > 28 else event.title
             event_box = BoxLayout(
                 orientation='horizontal',
@@ -338,9 +338,10 @@ class Calendar(GridLayout):
                 size=(24, 24),
             )
 
-            # Add the event label
+            # Add the event label (handle all-day events without time)
+            time_display = event.time if event.time else "All Day"
             preview_label = Label(
-                text=f"[size=14][color={self.text_color}][b]{event.time}[/b] {short_title}[/color][/size]",
+                text=f"[size=14][color={self.text_color}][b]{time_display}[/b] {short_title}[/color][/size]",
                 markup=True,
                 size_hint=(1, 1),
                 halign='left',

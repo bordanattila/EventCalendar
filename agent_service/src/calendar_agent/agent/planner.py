@@ -79,7 +79,7 @@ class CalendarPlanner:
         return create_react_agent(
             self.llm,
             self.tools,
-            state_modifier=system_prompt,
+            prompt=system_prompt,
         )
     
     def _generate_plan_id(self) -> str:

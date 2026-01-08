@@ -6,3 +6,4 @@ calendar.db
 .env
 theme_settings.json
 venv
+__pycache__/

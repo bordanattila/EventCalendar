@@ -145,7 +145,7 @@ class EventCreate(BaseModel):
     """Schema for creating an event via REST API."""
     title: str
     date: str
-    time: str
+    time: Optional[str] = None  # Optional for all-day events
     end_time: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None
@@ -170,7 +170,7 @@ class EventResponse(BaseModel):
     id: int
     title: str
     date: str
-    time: str
+    time: Optional[str] = None  # Optional for all-day events
     end_time: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None

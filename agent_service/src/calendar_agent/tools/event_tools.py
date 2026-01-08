@@ -14,8 +14,7 @@ from calendar_agent.db.repo import EventRepository
 def create_event_tool(
     title: str,
     date: str,
-    time: str,
-    end_time: Optional[str] = None,
+    time: Optional[str] = None,
     location: Optional[str] = None,
     notes: Optional[str] = None,
     recurrence: str = "none",
@@ -25,12 +24,11 @@ def create_event_tool(
     Create a new calendar event.
     
     Args:
-        title: Event title/name
+        title: Event title/name (max 50 chars)
         date: Event date in YYYY-MM-DD format
-        time: Start time in HH:MM format (24-hour)
-        end_time: End time in HH:MM format (optional)
-        location: Event location (optional)
-        notes: Additional notes (optional)
+        time: Start time in HH:MM format (24-hour), optional for all-day events
+        location: Event location (optional, max 50 chars)
+        notes: Additional notes (optional, max 200 chars)
         recurrence: Recurrence pattern - none, daily, weekly, monthly, yearly
         recurrence_end: End date for recurring events in YYYY-MM-DD format
     
@@ -43,7 +41,6 @@ def create_event_tool(
             title=title,
             date=date,
             time=time,
-            end_time=end_time,
             location=location,
             notes=notes,
             recurrence=recurrence,
@@ -60,7 +57,6 @@ def update_event_tool(
     title: Optional[str] = None,
     date: Optional[str] = None,
     time: Optional[str] = None,
-    end_time: Optional[str] = None,
     location: Optional[str] = None,
     notes: Optional[str] = None,
     recurrence: Optional[str] = None,
@@ -70,12 +66,11 @@ def update_event_tool(
     
     Args:
         event_id: ID of the event to update
-        title: New title (optional)
+        title: New title (optional, max 50 chars)
         date: New date in YYYY-MM-DD format (optional)
         time: New start time in HH:MM format (optional)
-        end_time: New end time in HH:MM format (optional)
-        location: New location (optional)
-        notes: New notes (optional)
+        location: New location (optional, max 50 chars)
+        notes: New notes (optional, max 200 chars)
         recurrence: New recurrence pattern (optional)
     
     Returns:
@@ -88,7 +83,6 @@ def update_event_tool(
             title=title,
             date=date,
             time=time,
-            end_time=end_time,
             location=location,
             notes=notes,
             recurrence=recurrence,
