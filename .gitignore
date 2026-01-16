@@ -1,9 +1,68 @@
-calendar.db
+# Database files
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
+calendar.db
+
+# Environment and secrets
 .env
+.env.local
+.env.*.local
+
+# App settings (user-specific)
 theme_settings.json
-venv
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+agent_service/venv/
+agent_service/.venv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Type checking
+.mypy_cache/
+.pytype/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Kivy
+*.kv~
