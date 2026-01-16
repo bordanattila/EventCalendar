@@ -198,10 +198,29 @@ class CalendarPlanner:
         
         for call in tool_calls:
             result = call.get("result", {})
-            if call.get("name") == "parse_datetime_tool" and isinstance(result, dict):
+            
+            # Handle wrapped string results {"raw": "..."}
+            if isinstance(result, dict) and "raw" in result:
+                raw_content = result["raw"]
+                if isinstance(raw_content, str):
+                    try:
+                        result = json.loads(raw_content)
+                    except json.JSONDecodeError:
+                        result = {}
+            # Handle direct string results (JSON)
+            elif isinstance(result, str):
+                try:
+                    result = json.loads(result)
+                except json.JSONDecodeError:
+                    result = {}
+            
+            if not isinstance(result, dict):
+                continue
+                
+            if call.get("name") == "parse_datetime_tool":
                 parsed_date = result.get("date")
                 parsed_time = result.get("time")
-            elif call.get("name") == "get_next_weekday_tool" and isinstance(result, dict):
+            elif call.get("name") == "get_next_weekday_tool":
                 parsed_date = result.get("date")
         
         # If no date from tools, extract from user message
@@ -444,8 +463,16 @@ class CalendarPlanner:
         for call in tool_calls:
             result = call.get("result", {})
             
-            # Handle string results (JSON)
-            if isinstance(result, str):
+            # Handle wrapped string results {"raw": "..."}
+            if isinstance(result, dict) and "raw" in result:
+                raw_content = result["raw"]
+                if isinstance(raw_content, str):
+                    try:
+                        result = json.loads(raw_content)
+                    except json.JSONDecodeError:
+                        continue
+            # Handle direct string results (JSON)
+            elif isinstance(result, str):
                 try:
                     result = json.loads(result)
                 except json.JSONDecodeError:
@@ -504,8 +531,16 @@ class CalendarPlanner:
         for call in tool_calls:
             result = call.get("result", {})
             
-            # Handle string results (JSON)
-            if isinstance(result, str):
+            # Handle wrapped string results {"raw": "..."}
+            if isinstance(result, dict) and "raw" in result:
+                raw_content = result["raw"]
+                if isinstance(raw_content, str):
+                    try:
+                        result = json.loads(raw_content)
+                    except json.JSONDecodeError:
+                        continue
+            # Handle direct string results (JSON)
+            elif isinstance(result, str):
                 try:
                     result = json.loads(result)
                 except json.JSONDecodeError:

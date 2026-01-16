@@ -48,6 +48,7 @@ class AgentPopup(Popup):
             self.recognizer = sr.Recognizer()
             self.recognizer.energy_threshold = 300
             self.recognizer.dynamic_energy_threshold = True
+            self.recognizer.pause_threshold = 1.5  # Wait 1.5 seconds of silence before considering phrase complete
         else:
             self.recognizer = None
         
