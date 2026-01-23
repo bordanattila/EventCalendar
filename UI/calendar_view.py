@@ -28,7 +28,7 @@ import calendar
 import datetime
 import time
 
-from app.utils import is_dark_mode
+# is_dark_mode removed - theme switching now uses ThemeManager settings
 from app.api_utils import is_event_on_date
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
@@ -391,20 +391,25 @@ class Calendar(GridLayout):
         Periodically checks if the theme should be updated based on time of day.
         If a theme switch is needed, the UI is rebuilt.
         """
-
-        current_mode = is_dark_mode()
-        if current_mode != self.dark_mode:
-            print('Switching theme based on time of day...')
-            self.dark_mode = current_mode
-
-            # Update app-wide colors
-            self.text_color = 'FFFFFF' if self.dark_mode else '000000'
+        # Store current theme before update
+        old_theme = self.theme_manager.settings.get('active_theme')
+        
+        # Let theme manager determine if theme should change based on settings
+        self.theme_manager.update_theme()
+        new_theme = self.theme_manager.settings.get('active_theme')
+        
+        if old_theme != new_theme:
+            print(f'Switching theme: {old_theme} -> {new_theme}')
+            
+            # Get updated theme colors
+            self.theme = self.theme_manager.get_theme()
+            self.dark_mode = self.theme['text_color'] == 'FFFFFF'
+            self.text_color = self.theme['text_color']
             self.bg_color = (0.1, 0.1, 0.1, 1) if self.dark_mode else (1, 1, 1, 1)
-            Window.clearcolor = self.bg_color
+            Window.clearcolor = get_color_from_hex(self.theme['bg_color'])
 
             # Rebuild UI with new theme
             self.clear_widgets()
-
             self.rebuild_ui(self.float_root)
 
     def set_selected_day(self, day):

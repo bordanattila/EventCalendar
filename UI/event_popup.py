@@ -456,16 +456,18 @@ class AddEventPopup(Popup):
         """
         if self.event and delete_event(self.event.id):
             self.show_popup_toast("Event deleted.")
+            
+            # Capture app reference before dismiss (cleanup clears it)
+            app = self.app_ref
             self.dismiss()
 
             # Delay the calendar refresh to occur AFTER the popup closes
             def refresh_ui(dt):
-                if hasattr(self.app_ref, "rebuild_ui"):
-                    float_root = getattr(self.app_ref, "float_root", None)
-                    if float_root:
-                        self.app_ref.rebuild_ui(float_root)
-                    else:
-                        print("Warning: float_root not found for rebuild.")
+                if app and hasattr(app, "build_calendar"):
+                    try:
+                        app.build_calendar(app.current_year, app.current_month)
+                    except Exception as e:
+                        print(f"Error refreshing calendar after delete: {e}")
 
             Clock.schedule_once(refresh_ui, 0.3)
         else:

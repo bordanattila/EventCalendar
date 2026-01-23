@@ -3,14 +3,7 @@ agent_popup.py
 
 AI Agent popup for natural language calendar commands.
 
-<<<<<<< HEAD
-Allows users to:
-- Type natural language commands
-- See proposed changes from the AI agent
-- Approve and apply changes to the calendar
-=======
 Uses cloud agent (GPT-3.5-turbo) for fast responses.
->>>>>>> main
 
 Author: Attila Bordan
 """
@@ -21,17 +14,11 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
-<<<<<<< HEAD
-from kivy.graphics import Color, Rectangle, RoundedRectangle
-=======
 from kivy.graphics import Color, Rectangle
->>>>>>> main
 from kivy.utils import get_color_from_hex
 
 import threading
 
-<<<<<<< HEAD
-=======
 # Try to import speech recognition
 try:
     import speech_recognition as sr
@@ -44,26 +31,16 @@ except ImportError:
 # Agent server configuration
 AGENT_URL = "http://localhost:8000"  # Cloud agent with GPT-3.5
 
->>>>>>> main
 
 class AgentPopup(Popup):
     """
     Popup for interacting with the AI calendar agent.
-<<<<<<< HEAD
-    
-    Args:
-        theme (dict): The active theme dictionary.
-        on_refresh (callable): Callback to refresh the calendar after changes.
-=======
->>>>>>> main
     """
     
     def __init__(self, theme, on_refresh=None, **kwargs):
         self.theme = theme
         self.on_refresh = on_refresh
         self.current_plan = None
-<<<<<<< HEAD
-=======
         self.is_listening = False
         
         # Initialize speech recognizer if available
@@ -74,7 +51,6 @@ class AgentPopup(Popup):
             self.recognizer.pause_threshold = 1.5  # Wait 1.5 seconds of silence before considering phrase complete
         else:
             self.recognizer = None
->>>>>>> main
         
         super().__init__(
             title='AI Calendar Agent',
@@ -101,17 +77,10 @@ class AgentPopup(Popup):
         
         # Instructions label
         instructions = Label(
-<<<<<<< HEAD
-            text='[b]Ask the AI to manage your calendar:[/b]\n'
-                 '"Add soccer every Tuesday at 6pm for 8 weeks"\n'
-                 '"What are my crunch days next week?"\n'
-                 '"Move dentist if it conflicts with work"',
-=======
             text='[b]Speak or type to manage your calendar:[/b]\n'
                  '"Add soccer every Tuesday at 6pm for 8 weeks"\n'
                  '"What events do I have tomorrow?"\n'
                  '"Schedule dinner for Friday at 7pm"',
->>>>>>> main
             markup=True,
             color=get_color_from_hex(text_color),
             size_hint_y=None,
@@ -123,15 +92,6 @@ class AgentPopup(Popup):
         instructions.bind(size=lambda *x: setattr(instructions, 'text_size', (instructions.width - 20, None)))
         main_layout.add_widget(instructions)
         
-<<<<<<< HEAD
-        # Input field
-        self.input_field = TextInput(
-            hint_text='Type your command here...',
-            multiline=False,
-            size_hint_y=None,
-            height=50,
-            font_size='18sp',
-=======
         # Voice button
         self.voice_btn = Button(
             text='Tap to Speak',
@@ -179,43 +139,26 @@ class AgentPopup(Popup):
             multiline=False,
             size_hint=(0.75, 1),
             font_size='16sp',
->>>>>>> main
             background_color=(1, 1, 1, 1),
             foreground_color=(0, 0, 0, 1),
             cursor_color=(0, 0, 0, 1),
         )
         self.input_field.bind(on_text_validate=self._on_send)
-<<<<<<< HEAD
-        main_layout.add_widget(self.input_field)
-        
-        # Send button
-        send_btn = Button(
-            text='Ask Agent',
-            size_hint_y=None,
-            height=50,
-=======
         input_row.add_widget(self.input_field)
         
         send_btn = Button(
             text='Send',
             size_hint=(0.25, 1),
->>>>>>> main
             background_color=accent_color,
             color=(1, 1, 1, 1),
             bold=True,
         )
         send_btn.bind(on_release=self._on_send)
-<<<<<<< HEAD
-        main_layout.add_widget(send_btn)
-        
-        # Response area (scrollable)
-=======
         input_row.add_widget(send_btn)
         
         main_layout.add_widget(input_row)
         
         # Response area
->>>>>>> main
         scroll = ScrollView(size_hint=(1, 1))
         self.response_label = Label(
             text='[i]Response will appear here...[/i]',
@@ -235,11 +178,7 @@ class AgentPopup(Popup):
         scroll.add_widget(self.response_label)
         main_layout.add_widget(scroll)
         
-<<<<<<< HEAD
-        # Action buttons (hidden until we have a plan)
-=======
         # Action buttons
->>>>>>> main
         self.action_layout = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -276,14 +215,6 @@ class AgentPopup(Popup):
             self._bg_rect.pos = self.content.pos
             self._bg_rect.size = self.content.size
     
-<<<<<<< HEAD
-    def _on_send(self, instance=None):
-        """Send command to the AI agent."""
-        command = self.input_field.text.strip()
-        if not command:
-            return
-        
-=======
     def _on_voice_tap(self, instance=None):
         """Handle voice button tap."""
         if not SPEECH_AVAILABLE or self.is_listening:
@@ -427,34 +358,21 @@ class AgentPopup(Popup):
     
     def _send_command(self, command: str):
         """Send command to agent."""
->>>>>>> main
         self.response_label.text = '[i]Thinking...[/i]'
         self.approve_btn.disabled = True
         self.current_plan = None
         
-<<<<<<< HEAD
-        # Run in background thread to not block UI
-=======
->>>>>>> main
         thread = threading.Thread(target=self._call_agent, args=(command,))
         thread.daemon = True
         thread.start()
     
     def _call_agent(self, command: str):
-<<<<<<< HEAD
-        """Call the agent API in background thread."""
-=======
         """Call the agent API."""
->>>>>>> main
         try:
             import httpx
             
             response = httpx.post(
-<<<<<<< HEAD
-                'http://localhost:8000/chat',
-=======
                 f'{AGENT_URL}/chat',
->>>>>>> main
                 json={'message': command},
                 timeout=60.0
             )
@@ -465,58 +383,6 @@ class AgentPopup(Popup):
             else:
                 self._show_error(f'Server error: {response.status_code}')
                 
-<<<<<<< HEAD
-        except httpx.ConnectError:
-            self._show_error(
-                'Could not connect to agent server.\n\n'
-                'Start it with:\n'
-                'cd agent_service && uvicorn calendar_agent.main:app'
-            )
-        except Exception as e:
-            self._show_error(f'Error: {str(e)}')
-    
-    def _handle_response(self, result: dict):
-        """Handle response from agent (called from background thread)."""
-        from kivy.clock import Clock
-        
-        def update_ui(dt):
-            if not result.get('success'):
-                self.response_label.text = f'[color=#FF0000]Error: {result.get("error", "Unknown error")}[/color]'
-                return
-            
-            plan = result.get('plan', {})
-            self.current_plan = plan
-            
-            # Build response text
-            text = f'[b]Summary:[/b]\n{plan.get("summary", "No summary")}\n\n'
-            
-            actions = plan.get('actions', [])
-            if actions:
-                text += f'[b]Proposed Actions ({len(actions)}):[/b]\n'
-                for i, action in enumerate(actions, 1):
-                    action_type = action.get('type', 'unknown').replace('_', ' ').title()
-                    text += f'  {i}. {action_type}'
-                    
-                    if action.get('title'):
-                        text += f': {action["title"]}'
-                    if action.get('start'):
-                        text += f' @ {action["start"][:16]}'
-                    text += '\n'
-                
-                self.approve_btn.disabled = False
-            else:
-                text += '[i]No changes needed - informational response only.[/i]'
-                self.approve_btn.disabled = True
-            
-            warnings = plan.get('warnings', [])
-            if warnings:
-                text += f'\n[color=#FFA500][b]Warnings:[/b]\n'
-                for w in warnings:
-                    text += f'  * {w}\n'
-                text += '[/color]'
-            
-            self.response_label.text = text
-=======
         except Exception as e:
             error_msg = str(e) if str(e) else type(e).__name__
             if 'Connect' in error_msg:
@@ -564,16 +430,11 @@ class AgentPopup(Popup):
                 
             except Exception as e:
                 self.response_label.text = f'[color=#FF0000]UI Error: {str(e)}[/color]'
->>>>>>> main
         
         Clock.schedule_once(update_ui, 0)
     
     def _show_error(self, message: str):
-<<<<<<< HEAD
-        """Show error message (called from background thread)."""
-=======
         """Show error message."""
->>>>>>> main
         from kivy.clock import Clock
         Clock.schedule_once(lambda dt: setattr(self.response_label, 'text', f'[color=#FF0000]{message}[/color]'), 0)
     
@@ -595,20 +456,12 @@ class AgentPopup(Popup):
         thread.start()
     
     def _commit_plan(self, plan_id: str):
-<<<<<<< HEAD
-        """Commit the plan via API."""
-=======
         """Commit the plan."""
->>>>>>> main
         try:
             import httpx
             
             response = httpx.post(
-<<<<<<< HEAD
-                'http://localhost:8000/commit',
-=======
                 f'{AGENT_URL}/commit',
->>>>>>> main
                 json={'plan_id': plan_id, 'confirm_deletes': True},
                 timeout=30.0
             )
@@ -629,18 +482,10 @@ class AgentPopup(Popup):
         def update_ui(dt):
             if result.get('success'):
                 count = result.get('committed_actions', 0)
-<<<<<<< HEAD
-                self.response_label.text = f'[color=#00AA00][b]Success![/b]\n\nApplied {count} change(s) to your calendar.[/color]'
-                self.approve_btn.disabled = True
-                self.current_plan = None
-                
-                # Refresh the calendar
-=======
                 self.response_label.text = f'[color=#00AA00][b]Success![/b]\n\nApplied {count} change(s).[/color]'
                 self.approve_btn.disabled = True
                 self.current_plan = None
                 
->>>>>>> main
                 if self.on_refresh:
                     self.on_refresh()
             else:
