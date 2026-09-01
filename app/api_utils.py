@@ -30,7 +30,7 @@ def get_location():
         tuple: (latitude: float, longitude: float, city: str) or (None, None, None) on failure.
     """
     try:
-        response = requests.get(f"https://ipinfo.io/json?token={token}", timeout=5)
+        response = requests.get(f"https://api.ipinfo.io/json?token={token}", timeout=5)
         response.raise_for_status()  # Raise an exception for bad status codes
         data = response.json()
         loc = data.get('loc')
