@@ -26,9 +26,11 @@ from kivy.animation import Animation
 
 import calendar
 import datetime
+import threading
 import time
+from pathlib import Path
 
-from app.utils import is_dark_mode
+# is_dark_mode removed - theme switching now uses ThemeManager settings
 from app.api_utils import is_event_on_date
 from app.theme_manager import ThemeManager
 from UI.event_popup import AddEventPopup
@@ -127,6 +129,7 @@ class Calendar(GridLayout):
             theme=self.theme,
             on_toggle_view=self.toggle_weekly_view,
             on_add_event=self.on_add_event,
+            on_agent=self.show_agent,
             on_show_settings=self.show_settings,
             is_weekly_view=self.is_weekly_view,
         )
@@ -134,6 +137,13 @@ class Calendar(GridLayout):
 
         # Check time for dark and light mode
         Clock.schedule_interval(self.check_theme_switch, 600)
+
+        self._sync_state_file = (
+            Path(__file__).resolve().parents[1] / "sync" / "sync_state.json"
+        )
+        self._last_seen_sync_mtime = self._sync_state_mtime()
+        Window.unbind(on_focus=self._on_window_focus)
+        Window.bind(on_focus=self._on_window_focus)
 
         self.float_root = None
 
@@ -272,8 +282,8 @@ class Calendar(GridLayout):
         MAX_EVENTS = 3
         extra_events = max(0, len(all_monthly_events) - MAX_EVENTS)
 
-        # Add event previews (just time + title)
-        for i, event in enumerate(sorted(all_monthly_events, key=lambda e: e.time)[:MAX_EVENTS]):
+        # Add event previews (just time + title, all-day events first)
+        for i, event in enumerate(sorted(all_monthly_events, key=lambda e: e.time if e.time else '')[:MAX_EVENTS]):
             short_title = (event.title[:25] + '...') if len(event.title) > 28 else event.title
             event_box = BoxLayout(
                 orientation='horizontal',
@@ -337,9 +347,10 @@ class Calendar(GridLayout):
                 size=(24, 24),
             )
 
-            # Add the event label
+            # Add the event label (handle all-day events without time)
+            time_display = event.time if event.time else "All Day"
             preview_label = Label(
-                text=f"[size=14][color={self.text_color}][b]{event.time}[/b] {short_title}[/color][/size]",
+                text=f"[size=14][color={self.text_color}][b]{time_display}[/b] {short_title}[/color][/size]",
                 markup=True,
                 size_hint=(1, 1),
                 halign='left',
@@ -389,20 +400,25 @@ class Calendar(GridLayout):
         Periodically checks if the theme should be updated based on time of day.
         If a theme switch is needed, the UI is rebuilt.
         """
-
-        current_mode = is_dark_mode()
-        if current_mode != self.dark_mode:
-            print('Switching theme based on time of day...')
-            self.dark_mode = current_mode
-
-            # Update app-wide colors
-            self.text_color = 'FFFFFF' if self.dark_mode else '000000'
+        # Store current theme before update
+        old_theme = self.theme_manager.settings.get('active_theme')
+        
+        # Let theme manager determine if theme should change based on settings
+        self.theme_manager.update_theme()
+        new_theme = self.theme_manager.settings.get('active_theme')
+        
+        if old_theme != new_theme:
+            print(f'Switching theme: {old_theme} -> {new_theme}')
+            
+            # Get updated theme colors
+            self.theme = self.theme_manager.get_theme()
+            self.dark_mode = self.theme['text_color'] == 'FFFFFF'
+            self.text_color = self.theme['text_color']
             self.bg_color = (0.1, 0.1, 0.1, 1) if self.dark_mode else (1, 1, 1, 1)
-            Window.clearcolor = self.bg_color
+            Window.clearcolor = get_color_from_hex(self.theme['bg_color'])
 
             # Rebuild UI with new theme
             self.clear_widgets()
-
             self.rebuild_ui(self.float_root)
 
     def set_selected_day(self, day):
@@ -508,14 +524,69 @@ class Calendar(GridLayout):
 
             Clock.schedule_once(dismiss_toast, duration)
         else:
-            print("⚠️ Warning: float_root not set — cannot display toast.")
+            print("Warning: float_root not set - cannot display toast.")
 
     def set_float_root(self, float_root):
         """Allows the Calendar to add overlays like toast to its parent FloatLayout."""
         self.float_root = float_root
 
+    def refresh_calendar_view(self):
+        """Reload events for the current month or week without resetting navigation."""
+        if self.is_weekly_view:
+            self.weekly_view.update_week(self.current_week_date)
+        else:
+            self.build_calendar(self.current_year, self.current_month)
+
+    def _sync_state_mtime(self) -> float:
+        if self._sync_state_file.exists():
+            return self._sync_state_file.stat().st_mtime
+        return 0.0
+
+    def _on_window_focus(self, _window, focused):
+        if not focused:
+            return
+        mtime = self._sync_state_mtime()
+        if mtime > self._last_seen_sync_mtime:
+            self._last_seen_sync_mtime = mtime
+            self.refresh_calendar_view()
+
+    def _get_last_sync_text(self) -> str:
+        from app.sync_runner import _import_sync_job
+
+        return _import_sync_job().last_sync_display_text()
+
+    def _start_sync_from_settings(self, on_done):
+        def worker():
+            success = False
+            message = "Sync failed"
+            try:
+                from app.sync_runner import run_sync_with_state
+
+                state = run_sync_with_state()
+                success = bool(state.get("success", False))
+                message = state.get("summary", "Sync complete")
+                Clock.schedule_once(lambda _dt: self.refresh_calendar_view(), 0)
+            except Exception as exc:
+                message = str(exc)
+
+            Clock.schedule_once(lambda _dt: on_done(success, message), 0)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def show_settings(self, instance=None):
-        popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root), self.theme)
+        popup = create_settings_popup(
+            self.theme_manager,
+            lambda: self.rebuild_ui(self.float_root),
+            self.theme,
+            get_last_sync_text=self._get_last_sync_text,
+            on_sync_now=self._start_sync_from_settings,
+        )
+        popup.open()
+
+    def show_agent(self, instance=None):
+        """Opens the AI Agent popup for natural language calendar commands."""
+        from UI.agent_popup import AgentPopup
+        popup = AgentPopup(theme=self.theme, on_refresh=lambda: self.rebuild_ui(self.float_root))
         popup.open()
 
     def toggle_weekly_view(self, instance):

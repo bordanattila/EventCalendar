@@ -12,9 +12,16 @@ Author: Attila Bordan
 """
 import calendar
 import datetime
+import sys
+import uuid
+from pathlib import Path
 
 from sqlalchemy import String, create_engine, delete
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from app.api_utils import is_event_on_date
 
 
@@ -35,11 +42,19 @@ class Event(Base):
     notes: Mapped[str] = mapped_column(String(200))
     recurrence: Mapped[str] = mapped_column(String(10), index=True)
     recurrence_end: Mapped[str] = mapped_column(String(15), nullable=True)
+    ical_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    ical_etag: Mapped[str] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(String(255), nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(255), nullable=True)
+    last_modified: Mapped[str] = mapped_column(String(255), nullable=True)
+    event_end_time: Mapped[str] = mapped_column(String(255), nullable=True)
+
 
 # ---------- Database Initialization ----------
 
-# Local SQLite database engine
-engine = create_engine('sqlite:///calendar.db', echo=True)
+# Local SQLite database engine (always project-root calendar.db)
+DB_PATH = PROJECT_ROOT / 'calendar.db'
+engine = create_engine(f'sqlite:///{DB_PATH}', echo=True)
 
 # Create all tables based on Base metadata
 Base.metadata.create_all(engine)
@@ -49,6 +64,14 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 # ---------- Database Operations ----------
+
+def _default_end_time(start_time: str) -> str | None:
+    if not start_time:
+        return None
+    start = datetime.datetime.strptime(start_time, '%H:%M')
+    return (start + datetime.timedelta(hours=1)).strftime('%H:%M')
+
+
 def save_event_to_db(event_data: dict[str, str]) -> None:
     """
     Saves a new event to the database.
@@ -76,6 +99,12 @@ def save_event_to_db(event_data: dict[str, str]) -> None:
                 notes=event_data['notes'],
                 recurrence=event_data['recurrence'],
                 recurrence_end=event_data.get('recurrence_end'),  # Optional field
+                ical_uid=str(uuid.uuid4()),
+                ical_etag=None,
+                source="local",
+                sync_status="pending_push",
+                last_modified=datetime.datetime.now().isoformat(),
+                event_end_time=_default_end_time(event_data['time']),
             )
             session.add_all([new_event])
             session.commit()
@@ -115,9 +144,13 @@ def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
             regular = session.query(Event).filter(
                 Event.recurrence == 'none',
                 Event.date >= str(start_date),
-                Event.date < str(end_date)
+                Event.date < str(end_date),
+                Event.sync_status != 'pending_delete'
             ).all()
-            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
+            recurring = session.query(Event).filter(
+                Event.recurrence != 'none',
+                Event.sync_status != 'pending_delete'
+            ).all()
 
         all_events = regular + recurring
 
@@ -168,10 +201,14 @@ def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
             regular = session.query(Event).filter(
                 Event.recurrence == 'none',
                 Event.date >= str(start_date),
-                Event.date < str(end_date)
+                Event.date < str(end_date),
+                Event.sync_status != 'pending_delete'
             ).all()
 
-            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
+            recurring = session.query(Event).filter(
+                Event.recurrence != 'none',
+                Event.sync_status != 'pending_delete'
+            ).all()
 
         all_events = regular + recurring
 
@@ -204,6 +241,8 @@ def stop_recurring_event(event_id: int) -> bool:
             db_event = session.query(Event).get(event_id)
             if db_event and db_event.recurrence.lower() != "none":
                 db_event.recurrence_end = datetime.date.today().strftime('%Y-%m-%d')
+                db_event.sync_status = 'pending_push'
+                db_event.last_modified = datetime.datetime.now().isoformat()
                 session.commit()
                 return True
         return False
@@ -240,6 +279,9 @@ def update_event_in_db(event_id: int, updated_data: dict[str, str]) -> None:
                 event.location = updated_data['location']
                 event.notes = updated_data['notes']
                 event.recurrence = updated_data['recurrence']
+                event.sync_status = 'pending_push'
+                event.last_modified = datetime.datetime.now().isoformat()
+                event.event_end_time = _default_end_time(updated_data['time'])
                 # Update recurrence_end if provided
                 if 'recurrence_end' in updated_data:
                     event.recurrence_end = updated_data['recurrence_end']
@@ -265,7 +307,9 @@ def delete_event(event_id: int) -> bool:
         with SessionLocal() as session:
             db_event = session.query(Event).get(event_id)
             if db_event:
-                session.delete(db_event)
+                db_event.sync_status = 'pending_delete'
+                # sync_job will delete the event from the database
+                db_event.last_modified = datetime.datetime.now().isoformat()
                 session.commit()
                 return True
         return False

@@ -1,0 +1,17 @@
+[Unit]
+Description=EventCalendar iCloud sync (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust User and paths for your Pi/home directory
+User=pi
+WorkingDirectory=/home/pi/EventCalendar
+ExecStart=/home/pi/EventCalendar/.venv/bin/python sync/sync_job.py
+EnvironmentFile=/home/pi/EventCalendar/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

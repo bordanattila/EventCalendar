@@ -75,14 +75,14 @@ class TopBar(BoxLayout):
         self.add_widget(self.day_label)
         self.add_widget(self.date_label)
 
-        # Update time every second
-        Clock.schedule_interval(self.update_time, 1)
+        # Update time every minute (no seconds displayed)
+        Clock.schedule_interval(self.update_time, 60)
         # Update weather once after 1s, then every 30 minutes
         Clock.schedule_once(lambda dt: self.update_weather(), 1)
         Clock.schedule_interval(lambda dt: self.update_weather(), 1800)
 
     def update_time(self, dt):
-        """Refreshes the time label once per second."""
+        """Refreshes the time label once per minute."""
         self.current_time = str(get_time())
         self.time_label.text = f"[b][color={self.text_color}]{self.current_time}[/color][/b]"
 

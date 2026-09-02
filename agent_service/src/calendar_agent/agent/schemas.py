@@ -61,7 +61,6 @@ class DeleteEventAction(BaseModel):
     type: Literal["delete_event"] = "delete_event"
     event_id: int = Field(description="ID of event to delete")
     reason: Optional[str] = Field(default=None, description="Reason for deletion")
-    confirmed: bool = Field(default=False, description="Must be True to execute delete")
 
 
 class CancelRecurrenceAction(BaseModel):
@@ -123,14 +122,6 @@ class ChatResponse(BaseModel):
 class CommitRequest(BaseModel):
     """Request body for the /commit endpoint."""
     plan_id: str = Field(description="ID of the plan to commit")
-    confirm_deletes: bool = Field(
-        default=False,
-        description="Must be True to execute any delete actions"
-    )
-    skip_conflict_check: bool = Field(
-        default=False,
-        description="Skip re-checking conflicts before applying (not recommended)"
-    )
     modifications: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Any modifications to the plan before committing"
@@ -154,12 +145,18 @@ class EventCreate(BaseModel):
     """Schema for creating an event via REST API."""
     title: str
     date: str
-    time: str
+    time: Optional[str] = None  # Optional for all-day events
     end_time: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None
     recurrence: str = "none"
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 
 
 class EventUpdate(BaseModel):
@@ -172,6 +169,12 @@ class EventUpdate(BaseModel):
     notes: Optional[str] = None
     recurrence: Optional[str] = None
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -179,10 +182,16 @@ class EventResponse(BaseModel):
     id: int
     title: str
     date: str
-    time: str
+    time: Optional[str] = None  # Optional for all-day events
     end_time: Optional[str] = None
     location: Optional[str] = None
     notes: Optional[str] = None
     recurrence: str
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 

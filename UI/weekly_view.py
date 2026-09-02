@@ -75,9 +75,13 @@ class WeeklyView(BoxLayout):
             padding=(5, 5),
         )
 
-        # Conditionally include location and notes only if they're not empty
-        event_text = f"[b][color={self.theme['time_color']}]{event.time}[/color][/b]\n" + \
-                     f"[color={self.text_color}]{event.title}[/color]"
+        # Conditionally include time (for all-day events, time may be empty)
+        if event.time:
+            event_text = f"[b][color={self.theme['time_color']}]{event.time}[/color][/b]\n" + \
+                         f"[color={self.text_color}]{event.title}[/color]"
+        else:
+            event_text = f"[b][color={self.theme['time_color']}]All Day[/color][/b]\n" + \
+                         f"[color={self.text_color}]{event.title}[/color]"
 
         if event.location and event.location.strip():
             event_text += f"\n[size=14][color={self.theme['location_color']}][u]Location:[/u] " \
@@ -247,8 +251,8 @@ class WeeklyView(BoxLayout):
             )
             events_layout.bind(minimum_height=events_layout.setter('height'))
 
-            # Sort events chronologically
-            events = sorted(event_dict.get(str(date), []), key=lambda e: e.time)
+            # Sort events chronologically (all-day events without time appear first)
+            events = sorted(event_dict.get(str(date), []), key=lambda e: e.time if e.time else '')
             all_weekly_events = [e for e in events if is_event_on_date(e, date)]
 
             # Add each event to the column

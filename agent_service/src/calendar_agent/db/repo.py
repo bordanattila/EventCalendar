@@ -2,10 +2,8 @@
 Event Repository - Database operations for calendar events.
 
 Provides CRUD operations and queries used by agent tools.
-Matches the logic of the Kivy app's db_manager.py.
 """
 
-import json
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -13,51 +11,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from .session import Event, get_session
-
-
-def is_event_on_date(event: Dict, check_date: date) -> bool:
-    """
-    Check if an event (including recurring ones) falls on a given date.
-    
-    Mirrors the logic in app/api_utils.py
-    """
-    event_date_str = event.get("date", "")
-    try:
-        event_date = datetime.strptime(event_date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return False
-    
-    recurrence = event.get("recurrence", "none").lower()
-    
-    # Non-recurring event
-    if recurrence == "none":
-        return event_date == check_date
-    
-    # Recurring event - check if within range
-    if check_date < event_date:
-        return False
-    
-    # Check recurrence_end
-    recurrence_end = event.get("recurrence_end")
-    if recurrence_end:
-        try:
-            end_date = datetime.strptime(recurrence_end, "%Y-%m-%d").date()
-            if check_date > end_date:
-                return False
-        except ValueError:
-            pass
-    
-    # Check recurrence pattern
-    if recurrence == "daily":
-        return True
-    elif recurrence == "weekly":
-        return event_date.weekday() == check_date.weekday()
-    elif recurrence == "monthly":
-        return event_date.day == check_date.day
-    elif recurrence == "yearly":
-        return event_date.month == check_date.month and event_date.day == check_date.day
-    
-    return False
+from storage.db_manager import _default_end_time
+import uuid
 
 
 class EventRepository:
@@ -67,32 +22,51 @@ class EventRepository:
         """Initialize with optional session."""
         self._session = session
     
+    def _get_session(self):
+        """Get session, creating one if needed."""
+        if self._session:
+            return self._session
+        return get_session()
+    
     # ==================== CREATE ====================
     
     def create_event(
         self,
         title: str,
         date: str,
-        time: str,
+        time: Optional[str] = None,  # Optional for all-day events
         location: str = "",
         notes: str = "",
         recurrence: str = "none",
         recurrence_end: Optional[str] = None,
+        ical_uid: Optional[str] = None,
+        ical_etag: Optional[str] = None,
+        source: Optional[str] = None,
+        sync_status: Optional[str] = None,
+        last_modified: Optional[str] = None,
+        event_end_time: Optional[str] = None,
     ) -> Dict:
         """Create a new event."""
         with get_session() as session:
             event = Event(
                 title=title,
                 date=date,
-                time=time,
+                time=time or "",  # Empty string for all-day events
                 location=location or "",
                 notes=notes or "",
                 recurrence=recurrence,
                 recurrence_end=recurrence_end,
+                ical_uid=ical_uid or str(uuid.uuid4()),
+                ical_etag=ical_etag,
+                source=source,
+                sync_status=sync_status or 'pending_push',
+                last_modified=last_modified or datetime.now().isoformat(),
+                event_end_time=_default_end_time(time) or None,
             )
             session.add(event)
             session.flush()
-            return event.to_dict()
+            event_dict = event.to_dict()
+            return event_dict
     
     # ==================== READ ====================
     
@@ -102,72 +76,25 @@ class EventRepository:
             event = session.query(Event).filter(Event.id == event_id).first()
             return event.to_dict() if event else None
     
-    def list_events(
-        self,
-        start_date: str,
-        end_date: str,
-        include_recurring: bool = True
-    ) -> List[Dict]:
-        """
-        List all events within a date range.
-        
-        Args:
-            start_date: Start of range (YYYY-MM-DD)
-            end_date: End of range (YYYY-MM-DD)
-            include_recurring: Whether to expand recurring events
-        
-        Returns:
-            List of events, with recurring events expanded to their occurrences
-        """
-        with get_session() as session:
-            # Get non-recurring events in range
-            regular = session.query(Event).filter(
-                Event.recurrence == "none",
-                Event.date >= start_date,
-                Event.date <= end_date
-            ).all()
-            regular_dicts = [e.to_dict() for e in regular]
-            
-            if not include_recurring:
-                return regular_dicts
-            
-            # Get all recurring events
-            recurring = session.query(Event).filter(
-                Event.recurrence != "none"
-            ).all()
-            recurring_dicts = [e.to_dict() for e in recurring]
-        
-        # Expand recurring events to specific dates
-        result = list(regular_dicts)
-        
-        start = datetime.strptime(start_date, "%Y-%m-%d").date()
-        end = datetime.strptime(end_date, "%Y-%m-%d").date()
-        
-        current = start
-        while current <= end:
-            for event in recurring_dicts:
-                if is_event_on_date(event, current):
-                    # Create an occurrence with the specific date
-                    occurrence = dict(event)
-                    occurrence["occurrence_date"] = current.isoformat()
-                    occurrence["is_recurring_instance"] = True
-                    result.append(occurrence)
-            current += timedelta(days=1)
-        
-        # Sort by date and time
-        result.sort(key=lambda e: (e.get("occurrence_date", e["date"]), e["time"]))
-        return result
-    
     def get_events_by_date(self, target_date: str) -> List[Dict]:
-        """Get all events for a specific date (including recurring)."""
-        return self.list_events(target_date, target_date)
+        """Get all events for a specific date."""
+        with get_session() as session:
+            events = session.query(Event).filter(Event.date == target_date).all()
+            return [e.to_dict() for e in events]
     
     def get_events_in_range(self, start_date: str, end_date: str) -> List[Dict]:
-        """Get all events within a date range (alias for list_events)."""
-        return self.list_events(start_date, end_date)
+        """Get all events within a date range (inclusive)."""
+        with get_session() as session:
+            events = session.query(Event).filter(
+                and_(
+                    Event.date >= start_date,
+                    Event.date <= end_date
+                )
+            ).order_by(Event.date, Event.time).all()
+            return [e.to_dict() for e in events]
     
     def get_all_events(self, limit: int = 100) -> List[Dict]:
-        """Get all events (raw, without recurring expansion)."""
+        """Get all events (with optional limit)."""
         with get_session() as session:
             events = session.query(Event).order_by(Event.date, Event.time).limit(limit).all()
             return [e.to_dict() for e in events]
@@ -181,7 +108,7 @@ class EventRepository:
             return [e.to_dict() for e in events]
     
     def search_events(self, query: str) -> List[Dict]:
-        """Search events by title, notes, or location."""
+        """Search events by title or notes."""
         with get_session() as session:
             search_pattern = f"%{query}%"
             events = session.query(Event).filter(
@@ -205,6 +132,12 @@ class EventRepository:
         notes: Optional[str] = None,
         recurrence: Optional[str] = None,
         recurrence_end: Optional[str] = None,
+        ical_uid: Optional[str] = None,
+        ical_etag: Optional[str] = None,
+        source: Optional[str] = None,
+        sync_status: Optional[str] = 'pending_push',
+        last_modified: Optional[str] = datetime.now().isoformat(),
+        event_end_time: Optional[str] = None,
     ) -> Optional[Dict]:
         """Update an existing event (partial update)."""
         with get_session() as session:
@@ -226,7 +159,18 @@ class EventRepository:
                 event.recurrence = recurrence
             if recurrence_end is not None:
                 event.recurrence_end = recurrence_end
-            
+            if ical_uid is not None:
+                event.ical_uid = ical_uid
+            if ical_etag is not None:
+                event.ical_etag = ical_etag
+            if source is not None:
+                event.source = source
+            if sync_status is not None:
+                event.sync_status = sync_status
+            if last_modified is not None:
+                event.last_modified = last_modified
+            if event_end_time is not None:
+                event.event_end_time = event_end_time
             session.flush()
             return event.to_dict()
     
@@ -240,20 +184,10 @@ class EventRepository:
             event.date = new_date
             if new_time:
                 event.time = new_time
-            
+            event.event_end_time = _default_end_time(new_time)
+            event.sync_status = 'pending_push'
             session.flush()
             return event.to_dict()
-    
-    def stop_recurrence(self, event_id: int, stop_date: Optional[str] = None) -> bool:
-        """Stop a recurring event from this date onwards."""
-        with get_session() as session:
-            event = session.query(Event).filter(Event.id == event_id).first()
-            if not event or event.recurrence == "none":
-                return False
-            
-            event.recurrence_end = stop_date or date.today().isoformat()
-            session.flush()
-            return True
     
     # ==================== DELETE ====================
     
@@ -263,94 +197,92 @@ class EventRepository:
             event = session.query(Event).filter(Event.id == event_id).first()
             if not event:
                 return False
-            session.delete(event)
+            event.sync_status = 'pending_delete'
+            # sync_job will delete the event from the database
+            session.commit()
             return True
+    
+    def delete_events_by_title(self, title: str, date: Optional[str] = None) -> int:
+        """Delete events matching title (and optionally date). Returns count deleted."""
+        with get_session() as session:
+            query = session.query(Event).filter(Event.title.ilike(f"%{title}%"))
+            if date:
+                query = query.filter(Event.date == date)
+            count = query.count()
+            query.update({'sync_status': 'pending_delete'})
+            # sync_job will delete the events from the database
+            session.commit()
+            return count
     
     # ==================== CONFLICT DETECTION ====================
     
-    def check_conflicts(
+    def find_conflicts(
         self,
-        start_date: str,
+        date: str,
         start_time: str,
         end_time: Optional[str] = None,
-        ignore_event_id: Optional[int] = None,
-        duration_minutes: int = 60
+        exclude_event_id: Optional[int] = None
     ) -> List[Dict]:
-        """
-        Check for scheduling conflicts.
-        
-        Args:
-            start_date: Date to check (YYYY-MM-DD)
-            start_time: Start time (HH:MM)
-            end_time: End time (HH:MM), if None uses duration_minutes
-            ignore_event_id: Event ID to exclude from check
-            duration_minutes: Default duration if end_time not provided
-        
-        Returns:
-            List of conflicting events
-        """
-        # Get all events on the date
-        events = self.get_events_by_date(start_date)
-        
-        # Parse new event times
-        new_start = datetime.strptime(start_time, "%H:%M")
-        if end_time:
-            new_end = datetime.strptime(end_time, "%H:%M")
-        else:
-            new_end = new_start + timedelta(minutes=duration_minutes)
-        
-        conflicts = []
-        for event in events:
-            # Skip the event we're updating
-            if ignore_event_id and event["id"] == ignore_event_id:
-                continue
+        """Find events that conflict with a given time slot."""
+        with get_session() as session:
+            # Get all events on that date
+            query = session.query(Event).filter(Event.date == date)
+            if exclude_event_id:
+                query = query.filter(Event.id != exclude_event_id)
             
-            # Parse event times
-            event_start = datetime.strptime(event["time"], "%H:%M")
-            # Assume 1 hour duration for events without end time
-            event_end = event_start + timedelta(hours=1)
+            events = query.all()
+            conflicts = []
             
-            # Check for overlap: A overlaps B if A.start < B.end and A.end > B.start
-            if new_start < event_end and new_end > event_start:
-                conflicts.append(event)
-        
-        return conflicts
+            # Parse times for comparison
+            new_start = datetime.strptime(start_time, "%H:%M")
+            new_end = datetime.strptime(end_time or start_time, "%H:%M") + timedelta(hours=1)
+            
+            for event in events:
+                # Skip all-day events (no time) for time-based conflict check
+                if not event.time:
+                    continue
+                    
+                event_start = datetime.strptime(event.time, "%H:%M")
+                # Assume 1 hour duration for events
+                event_end = event_start + timedelta(hours=1)
+                
+                # Check for overlap
+                if new_start < event_end and new_end > event_start:
+                    conflicts.append(event.to_dict())
+            
+            return conflicts
     
-    def get_busy_times(self, target_date: str) -> List[Dict[str, str]]:
+    def get_busy_times(self, date: str) -> List[Dict[str, str]]:
         """Get all busy time slots for a date."""
-        events = self.get_events_by_date(target_date)
-        busy = []
-        
-        for event in events:
-            start = datetime.strptime(event["time"], "%H:%M")
-            # Assume 1 hour duration
-            end = start + timedelta(hours=1)
-            busy.append({
-                "start": event["time"],
-                "end": end.strftime("%H:%M"),
-                "title": event["title"],
-                "event_id": event["id"]
-            })
-        
-        # Sort by start time
-        busy.sort(key=lambda x: x["start"])
-        return busy
+        with get_session() as session:
+            events = session.query(Event).filter(Event.date == date).order_by(Event.time).all()
+            busy = []
+            for event in events:
+                # Skip all-day events (no time)
+                if not event.time:
+                    continue
+                # Assume 1 hour duration for events
+                end_time = (
+                    datetime.strptime(event.time, "%H:%M") + timedelta(hours=1)
+                ).strftime("%H:%M")
+                busy.append({
+                    "start": event.time,
+                    "end": end_time,
+                    "title": event.title,
+                    "event_id": event.id
+                })
+            return busy
     
-    def get_free_slots(
-        self,
-        target_date: str,
-        min_duration_minutes: int = 30,
-        day_start: str = "08:00",
-        day_end: str = "22:00"
-    ) -> List[Dict[str, Any]]:
+    def get_free_slots(self, date: str, min_duration_minutes: int = 30) -> List[Dict[str, str]]:
         """Get free time slots for a date."""
-        busy = self.get_busy_times(target_date)
+        busy = self.get_busy_times(date)
         
-        day_start_dt = datetime.strptime(day_start, "%H:%M")
-        day_end_dt = datetime.strptime(day_end, "%H:%M")
+        # Start at 8 AM, end at 10 PM
+        day_start = datetime.strptime("08:00", "%H:%M")
+        day_end = datetime.strptime("22:00", "%H:%M")
         
         free_slots = []
-        current = day_start_dt
+        current = day_start
         
         for slot in busy:
             slot_start = datetime.strptime(slot["start"], "%H:%M")
@@ -366,54 +298,14 @@ class EventRepository:
             current = max(current, slot_end)
         
         # Check remaining time until end of day
-        if current < day_end_dt:
-            gap_minutes = (day_end_dt - current).seconds // 60
+        if current < day_end:
+            gap_minutes = (day_end - current).seconds // 60
             if gap_minutes >= min_duration_minutes:
                 free_slots.append({
                     "start": current.strftime("%H:%M"),
-                    "end": day_end_dt.strftime("%H:%M"),
+                    "end": day_end.strftime("%H:%M"),
                     "duration_minutes": gap_minutes
                 })
         
         return free_slots
-    
-    def crunch_days(
-        self,
-        start_date: str,
-        end_date: str,
-        threshold_events: int = 4
-    ) -> List[Dict[str, Any]]:
-        """
-        Find "crunch days" - days with too many events.
-        
-        Args:
-            start_date: Start of range (YYYY-MM-DD)
-            end_date: End of range (YYYY-MM-DD)
-            threshold_events: Min events to consider "crunch"
-        
-        Returns:
-            List of crunch days with event counts
-        """
-        events = self.list_events(start_date, end_date)
-        
-        # Group by date
-        events_by_date: Dict[str, List] = {}
-        for event in events:
-            event_date = event.get("occurrence_date", event["date"])
-            if event_date not in events_by_date:
-                events_by_date[event_date] = []
-            events_by_date[event_date].append(event)
-        
-        crunch_days = []
-        for event_date, day_events in events_by_date.items():
-            if len(day_events) >= threshold_events:
-                crunch_days.append({
-                    "date": event_date,
-                    "event_count": len(day_events),
-                    "events": [
-                        {"title": e["title"], "time": e["time"]}
-                        for e in day_events
-                    ]
-                })
-        
-        return sorted(crunch_days, key=lambda x: x["date"])
+

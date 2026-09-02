@@ -10,12 +10,12 @@ import datetime as dt
 
 def get_time():
     """
-    Returns the current time as a string in HH:MM:SS format.
+    Returns the current time as a string in HH:MM format.
 
     Returns:
-        str: The current time in ISO 8601 format (e.g., '14:30:25').
+        str: The current time (e.g., '14:30').
     """
-    return dt.datetime.now().time().isoformat(timespec='seconds')
+    return dt.datetime.now().strftime('%H:%M')
 
 
 def get_date():
