@@ -144,9 +144,13 @@ def get_events_for_week(year: int, week_number: int) -> dict[str, list[Event]]:
             regular = session.query(Event).filter(
                 Event.recurrence == 'none',
                 Event.date >= str(start_date),
-                Event.date < str(end_date)
+                Event.date < str(end_date),
+                Event.sync_status != 'pending_delete'
             ).all()
-            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
+            recurring = session.query(Event).filter(
+                Event.recurrence != 'none',
+                Event.sync_status != 'pending_delete'
+            ).all()
 
         all_events = regular + recurring
 
@@ -197,10 +201,14 @@ def get_events_for_month(year: int, month: int) -> dict[str, list[Event]]:
             regular = session.query(Event).filter(
                 Event.recurrence == 'none',
                 Event.date >= str(start_date),
-                Event.date < str(end_date)
+                Event.date < str(end_date),
+                Event.sync_status != 'pending_delete'
             ).all()
 
-            recurring = session.query(Event).filter(Event.recurrence != 'none').all()
+            recurring = session.query(Event).filter(
+                Event.recurrence != 'none',
+                Event.sync_status != 'pending_delete'
+            ).all()
 
         all_events = regular + recurring
 
