@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from .session import Event, get_session
+from storage.db_manager import _default_end_time
+import uuid
 
 
 class EventRepository:
@@ -37,6 +39,12 @@ class EventRepository:
         notes: str = "",
         recurrence: str = "none",
         recurrence_end: Optional[str] = None,
+        ical_uid: Optional[str] = None,
+        ical_etag: Optional[str] = None,
+        source: Optional[str] = None,
+        sync_status: Optional[str] = None,
+        last_modified: Optional[str] = None,
+        event_end_time: Optional[str] = None,
     ) -> Dict:
         """Create a new event."""
         with get_session() as session:
@@ -48,6 +56,12 @@ class EventRepository:
                 notes=notes or "",
                 recurrence=recurrence,
                 recurrence_end=recurrence_end,
+                ical_uid=ical_uid or str(uuid.uuid4()),
+                ical_etag=ical_etag,
+                source=source,
+                sync_status=sync_status or 'pending_push',
+                last_modified=last_modified or datetime.now().isoformat(),
+                event_end_time=_default_end_time(time) or None,
             )
             session.add(event)
             session.flush()
@@ -118,6 +132,12 @@ class EventRepository:
         notes: Optional[str] = None,
         recurrence: Optional[str] = None,
         recurrence_end: Optional[str] = None,
+        ical_uid: Optional[str] = None,
+        ical_etag: Optional[str] = None,
+        source: Optional[str] = None,
+        sync_status: Optional[str] = 'pending_push',
+        last_modified: Optional[str] = datetime.now().isoformat(),
+        event_end_time: Optional[str] = None,
     ) -> Optional[Dict]:
         """Update an existing event (partial update)."""
         with get_session() as session:
@@ -139,7 +159,18 @@ class EventRepository:
                 event.recurrence = recurrence
             if recurrence_end is not None:
                 event.recurrence_end = recurrence_end
-            
+            if ical_uid is not None:
+                event.ical_uid = ical_uid
+            if ical_etag is not None:
+                event.ical_etag = ical_etag
+            if source is not None:
+                event.source = source
+            if sync_status is not None:
+                event.sync_status = sync_status
+            if last_modified is not None:
+                event.last_modified = last_modified
+            if event_end_time is not None:
+                event.event_end_time = event_end_time
             session.flush()
             return event.to_dict()
     
@@ -153,7 +184,8 @@ class EventRepository:
             event.date = new_date
             if new_time:
                 event.time = new_time
-            
+            event.event_end_time = _default_end_time(new_time)
+            event.sync_status = 'pending_push'
             session.flush()
             return event.to_dict()
     
@@ -165,7 +197,9 @@ class EventRepository:
             event = session.query(Event).filter(Event.id == event_id).first()
             if not event:
                 return False
-            session.delete(event)
+            event.sync_status = 'pending_delete'
+            # sync_job will delete the event from the database
+            session.commit()
             return True
     
     def delete_events_by_title(self, title: str, date: Optional[str] = None) -> int:
@@ -175,7 +209,9 @@ class EventRepository:
             if date:
                 query = query.filter(Event.date == date)
             count = query.count()
-            query.delete(synchronize_session=False)
+            query.update({'sync_status': 'pending_delete'})
+            # sync_job will delete the events from the database
+            session.commit()
             return count
     
     # ==================== CONFLICT DETECTION ====================

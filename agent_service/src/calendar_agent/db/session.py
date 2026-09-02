@@ -47,6 +47,12 @@ class Event(Base):
     notes: Mapped[str] = mapped_column(String(200))
     recurrence: Mapped[str] = mapped_column(String(10), index=True)  # none, daily, weekly, monthly
     recurrence_end: Mapped[str] = mapped_column(String(15), nullable=True)
+    ical_uid: Mapped[str] = mapped_column(String(255), nullable=True)
+    ical_etag: Mapped[str] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(String(255), nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(255), nullable=True)
+    last_modified: Mapped[str] = mapped_column(String(255), nullable=True)
+    event_end_time: Mapped[str] = mapped_column(String(255), nullable=True)
     
     def to_dict(self) -> dict:
         """Convert event to dictionary."""
@@ -59,6 +65,12 @@ class Event(Base):
             "notes": self.notes,
             "recurrence": self.recurrence,
             "recurrence_end": self.recurrence_end,
+            "ical_uid": self.ical_uid,
+            "ical_etag": self.ical_etag,
+            "source": self.source,
+            "sync_status": self.sync_status,
+            "last_modified": self.last_modified,
+            "event_end_time": self.event_end_time,
         }
 
 

@@ -151,6 +151,12 @@ class EventCreate(BaseModel):
     notes: Optional[str] = None
     recurrence: str = "none"
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 
 
 class EventUpdate(BaseModel):
@@ -163,6 +169,12 @@ class EventUpdate(BaseModel):
     notes: Optional[str] = None
     recurrence: Optional[str] = None
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -176,4 +188,10 @@ class EventResponse(BaseModel):
     notes: Optional[str] = None
     recurrence: str
     recurrence_end: Optional[str] = None
+    ical_uid: Optional[str] = None
+    ical_etag: Optional[str] = None
+    source: Optional[str] = None
+    sync_status: Optional[str] = None
+    last_modified: Optional[str] = None
+    event_end_time: Optional[str] = None
 
