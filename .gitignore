@@ -57,9 +57,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-logs/
+sync/sync_state.json
 
 # Jupyter
 .ipynb_checkpoints/

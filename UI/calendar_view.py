@@ -26,7 +26,9 @@ from kivy.animation import Animation
 
 import calendar
 import datetime
+import threading
 import time
+from pathlib import Path
 
 # is_dark_mode removed - theme switching now uses ThemeManager settings
 from app.api_utils import is_event_on_date
@@ -135,6 +137,13 @@ class Calendar(GridLayout):
 
         # Check time for dark and light mode
         Clock.schedule_interval(self.check_theme_switch, 600)
+
+        self._sync_state_file = (
+            Path(__file__).resolve().parents[1] / "sync" / "sync_state.json"
+        )
+        self._last_seen_sync_mtime = self._sync_state_mtime()
+        Window.unbind(on_focus=self._on_window_focus)
+        Window.bind(on_focus=self._on_window_focus)
 
         self.float_root = None
 
@@ -521,8 +530,57 @@ class Calendar(GridLayout):
         """Allows the Calendar to add overlays like toast to its parent FloatLayout."""
         self.float_root = float_root
 
+    def refresh_calendar_view(self):
+        """Reload events for the current month or week without resetting navigation."""
+        if self.is_weekly_view:
+            self.weekly_view.update_week(self.current_week_date)
+        else:
+            self.build_calendar(self.current_year, self.current_month)
+
+    def _sync_state_mtime(self) -> float:
+        if self._sync_state_file.exists():
+            return self._sync_state_file.stat().st_mtime
+        return 0.0
+
+    def _on_window_focus(self, _window, focused):
+        if not focused:
+            return
+        mtime = self._sync_state_mtime()
+        if mtime > self._last_seen_sync_mtime:
+            self._last_seen_sync_mtime = mtime
+            self.refresh_calendar_view()
+
+    def _get_last_sync_text(self) -> str:
+        from app.sync_runner import _import_sync_job
+
+        return _import_sync_job().last_sync_display_text()
+
+    def _start_sync_from_settings(self, on_done):
+        def worker():
+            success = False
+            message = "Sync failed"
+            try:
+                from app.sync_runner import run_sync_with_state
+
+                state = run_sync_with_state()
+                success = bool(state.get("success", False))
+                message = state.get("summary", "Sync complete")
+                Clock.schedule_once(lambda _dt: self.refresh_calendar_view(), 0)
+            except Exception as exc:
+                message = str(exc)
+
+            Clock.schedule_once(lambda _dt: on_done(success, message), 0)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def show_settings(self, instance=None):
-        popup = create_settings_popup(self.theme_manager, lambda: self.rebuild_ui(self.float_root), self.theme)
+        popup = create_settings_popup(
+            self.theme_manager,
+            lambda: self.rebuild_ui(self.float_root),
+            self.theme,
+            get_last_sync_text=self._get_last_sync_text,
+            on_sync_now=self._start_sync_from_settings,
+        )
         popup.open()
 
     def show_agent(self, instance=None):

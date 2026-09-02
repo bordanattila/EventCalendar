@@ -2,8 +2,9 @@
 settings_popup.py
 
 Defines the themed settings popup for toggling auto light/dark mode, setting custom
-theme preferences, and adjusting light/dark start times in the Family Calendar app.
+theme preferences, adjusting light/dark start times, and triggering iCloud sync.
 """
+from kivy.clock import Clock
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -18,12 +19,20 @@ from app.ui_utils import create_themed_button
 from UI.components.keyboard import VirtualKeyboard
 
 
-def create_settings_popup(theme_manager, apply_callback, theme):
+def create_settings_popup(
+    theme_manager,
+    apply_callback,
+    theme,
+    get_last_sync_text=None,
+    on_sync_now=None,
+):
     """
     Constructs and returns a Settings Popup UI
     :param theme_manager: ThemeManager instance
     :param apply_callback: Function to call after settings are saved
     :param theme: Dict containing current theme colors
+    :param get_last_sync_text: Optional callable returning last sync status text
+    :param on_sync_now: Optional callable(on_done) to trigger iCloud sync
     :return: Kivy Popup instance.
     """
     scroll = ScrollView(size_hint=(1, 1))
@@ -89,6 +98,37 @@ def create_settings_popup(theme_manager, apply_callback, theme):
     )
     settings_area.add_widget(dark_input)
 
+    sync_status_label = None
+    sync_button = None
+    if on_sync_now is not None:
+        settings_area.add_widget(
+            Label(
+                text="[b]iCloud Sync[/b]",
+                markup=True,
+                size_hint_y=None,
+                height=30,
+                color=text_color,
+            )
+        )
+        initial_status = get_last_sync_text() if get_last_sync_text else "Never synced"
+        sync_status_label = Label(
+            text=initial_status,
+            size_hint_y=None,
+            height=40,
+            color=text_color,
+            halign="left",
+            valign="middle",
+        )
+        sync_status_label.bind(size=lambda inst, _: setattr(inst, "text_size", inst.size))
+        settings_area.add_widget(sync_status_label)
+
+        sync_layout, sync_button = create_themed_button(
+            "Sync Now",
+            theme,
+            return_button=True,
+        )
+        settings_area.add_widget(sync_layout)
+
     settings_popup_layout = BoxLayout(orientation='vertical')
     settings_popup_layout.add_widget(scroll)
 
@@ -114,6 +154,30 @@ def create_settings_popup(theme_manager, apply_callback, theme):
         return False
 
     popup.bind(on_touch_down=block_extra_touches)
+
+    def refresh_sync_status(success: bool, message: str) -> None:
+        if sync_button is not None:
+            sync_button.disabled = False
+        if sync_status_label is None:
+            return
+        if get_last_sync_text and success:
+            sync_status_label.text = get_last_sync_text()
+        else:
+            sync_status_label.text = message
+
+    def on_sync_pressed(_instance):
+        if sync_button is not None:
+            sync_button.disabled = True
+        if sync_status_label is not None:
+            sync_status_label.text = "Syncing with iCloud..."
+
+        def done(success, message):
+            Clock.schedule_once(lambda _dt: refresh_sync_status(success, message), 0)
+
+        on_sync_now(done)
+
+    if sync_button is not None:
+        sync_button.bind(on_release=on_sync_pressed)
 
     def toggle_spinner_state(*_):
         theme_spinner.disabled = auto_mode_switch.active

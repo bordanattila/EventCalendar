@@ -1,0 +1,10 @@
+[Unit]
+Description=Run EventCalendar iCloud sync daily at 6:00 AM
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+Unit=eventcalendar-sync.service
+
+[Install]
+WantedBy=timers.target
